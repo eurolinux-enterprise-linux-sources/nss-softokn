@@ -1,0 +1,17 @@
+diff -up ./nss/lib/freebl/nsslowhash.c.lowhash-test ./nss/lib/freebl/nsslowhash.c
+--- ./nss/lib/freebl/nsslowhash.c.lowhash-test	2013-09-24 18:21:48.746786195 -0700
++++ ./nss/lib/freebl/nsslowhash.c	2013-09-24 18:21:48.767786195 -0700
+@@ -29,6 +29,13 @@ static int nsslow_GetFIPSEnabled(void) {
+     FILE *f;
+     char d;
+     size_t size;
++    char *env = getenv("NSS_FIPS");
++
++    /* if the enviroment variable is set, force fips anyway. This lets us
++     * test FIPS mode even if the system isn't in FIPS mode */
++    if (env && *env == '1') {
++	return 1;
++    }
+ 
+     f = fopen("/proc/sys/crypto/fips_enabled", "r");
+     if (!f)

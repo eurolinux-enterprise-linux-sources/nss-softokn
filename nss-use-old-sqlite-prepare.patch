@@ -1,0 +1,281 @@
+diff -up ./nss/lib/softoken/config.mk.oldsqlite ./nss/lib/softoken/config.mk
+--- ./nss/lib/softoken/config.mk.oldsqlite	2019-05-10 14:14:18.000000000 -0700
++++ ./nss/lib/softoken/config.mk	2019-10-14 08:57:35.984335493 -0700
+@@ -10,6 +10,11 @@ EXTRA_LIBS += \
+ 	$(CRYPTOLIB) \
+ 	$(NULL)
+ 
++# system-installed sqlite3 could be old
++ifeq ($(OLD_SQLITE),1)
++DEFINES += -DOLD_SQLITE
++endif
++
+ # can't do this in manifest.mn because OS_TARGET isn't defined there.
+ ifeq (,$(filter-out WIN%,$(OS_TARGET)))
+ 
+diff -up ./nss/lib/softoken/sdb.c.oldsqlite ./nss/lib/softoken/sdb.c
+--- ./nss/lib/softoken/sdb.c.oldsqlite	2019-05-10 14:14:18.000000000 -0700
++++ ./nss/lib/softoken/sdb.c	2019-10-15 09:14:06.521992604 -0700
+@@ -43,6 +43,14 @@
+ #endif
+ #include "utilpars.h"
+ 
++/* Select the version of the API that we can count on
++ * being available on the system-installed sqlite3. */
++#ifdef OLD_SQLITE
++#define SQLITE3_PREPARE sqlite3_prepare
++#else
++#define SQLITE3_PREPARE sqlite3_prepare_v2
++#endif
++
+ #ifdef SQLITE_UNSAFE_THREADS
+ #include "prlock.h"
+ /*
+@@ -228,6 +236,7 @@ sdb_chmod(const char *filename, int pmod
+  * find out where sqlite stores the temp tables. We do this by replicating
+  * the logic from sqlite.
+  */
++#ifndef OLD_SQLITE
+ #if defined(_WIN32)
+ static char *
+ sdb_getFallbackTempDir(void)
+@@ -291,12 +300,117 @@ sdb_getFallbackTempDir(void)
+ #else
+ #error "sdb_getFallbackTempDir not implemented"
+ #endif
++#endif /* !OLD_SQLITE */
+ 
+ #ifndef SQLITE_FCNTL_TEMPFILENAME
+ /* SQLITE_FCNTL_TEMPFILENAME was added in SQLite 3.7.15 */
+ #define SQLITE_FCNTL_TEMPFILENAME 16
+ #endif
+ 
++#ifdef OLD_SQLITE
++/*
++ *
++ * strdup limited to 'n' bytes. (Note: len of file is assumed to be >= len)
++ *
++ * We don't have a PORT_ version of this function,
++ * I suspect it's only normally available in glib,
++ */
++static char *
++sdb_strndup(const char *file, int len)
++{
++    char *result = PORT_Alloc(len+1);
++
++    if (result == NULL) {
++     return result;
++    }
++
++    PORT_Memcpy(result, file, len);
++    result[len] = 0;
++    return result;
++}
++
++/*
++ * call back from  sqlite3_exec("Pragma database_list"). Looks for the
++ * temp directory, then return the file the temp directory is stored
++ * at. */
++static int
++sdb_getTempDirCallback(void *arg, int columnCount, char **cval, char
++**cname)
++{
++     int i;
++     int found = 0;
++     char *file = NULL;
++     char *end, *dir;
++     char dirsep;
++
++     /* we've already found the temp directory, don't look at any more
++records*/
++     if (*(char **)arg) {
++     return SQLITE_OK;
++     }
++
++     /* look at the columns to see if this record is the temp database,
++      * and does it say where it is stored */
++     for (i=0; i < columnCount; i++) {
++     if (PORT_Strcmp(cname[i],"name") == 0) {
++         if (PORT_Strcmp(cval[i], "temp") == 0) {
++         found++;
++         continue;
++         }
++     }
++     if (PORT_Strcmp(cname[i],"file") == 0) {
++         if (cval[i] && (*cval[i] != 0)) {
++         file = cval[i];
++         }
++     }
++     }
++
++     /* if we couldn't find it, ask for the next record */
++     if (!found || !file) {
++     return SQLITE_OK;
++     }
++
++     /* drop of the database file name and just return the directory */
++     dirsep = PR_GetDirectorySeparator();
++     end = PORT_Strrchr(file, dirsep);
++     if (!end) {
++     return SQLITE_OK;
++     }
++     dir = sdb_strndup(file, end-file);
++
++     *(char **)arg = dir;
++     return SQLITE_OK;
++}
++
++/*
++ * find out where sqlite stores the temp tables. We do this by creating
++ * a temp table, then looking for the database name that sqlite3 creates.
++ */
++static char *
++sdb_getTempDir(sqlite3 *sqlDB)
++{
++     char *tempDir = NULL;
++     int sqlerr;
++
++     /* create a temporary table */
++     sqlerr = sqlite3_exec(sqlDB, "CREATE TEMPORARY TABLE myTemp (id)",
++               NULL, 0, NULL);
++     if (sqlerr != SQLITE_OK) {
++     return NULL;
++     }
++     /* look for through the database list for the temp directory */
++     sqlerr = sqlite3_exec(sqlDB, "PRAGMA database_list",
++         sdb_getTempDirCallback, &tempDir, NULL);
++
++     /* drop the temp table we created */
++     sqlite3_exec(sqlDB, "DROP TABLE myTemp", NULL, 0, NULL);
++
++     if (sqlerr != SQLITE_OK) {
++     return NULL;
++     }
++     return tempDir;
++}
++#else
+ static char *
+ sdb_getTempDir(sqlite3 *sqlDB)
+ {
+@@ -339,6 +453,7 @@ sdb_getTempDir(sqlite3 *sqlDB)
+     sqlite3_free(tempName);
+     return result;
+ }
++#endif
+ 
+ /*
+  * Map SQL_LITE errors to PKCS #11 errors as best we can.
+@@ -648,10 +763,13 @@ static int
+ sdb_openDB(const char *name, sqlite3 **sqlDB, int flags)
+ {
+     int sqlerr;
++#ifndef OLD_SQLITE
+     int openFlags;
++#endif
+ 
+     *sqlDB = NULL;
+ 
++#ifndef OLD_SQLITE
+     if (flags & SDB_RDONLY) {
+         openFlags = SQLITE_OPEN_READONLY;
+     } else {
+@@ -660,6 +778,9 @@ sdb_openDB(const char *name, sqlite3 **s
+ 
+     /* Requires SQLite 3.5.0 or newer. */
+     sqlerr = sqlite3_open_v2(name, sqlDB, openFlags, NULL);
++#else
++    sqlerr = sqlite3_open(name, sqlDB);
++#endif
+     if (sqlerr != SQLITE_OK) {
+         return sqlerr;
+     }
+@@ -760,7 +881,7 @@ sdb_FindObjectsInit(SDB *sdb, const CK_A
+         error = CKR_HOST_MEMORY;
+         goto loser;
+     }
+-    sqlerr = sqlite3_prepare_v2(sqlDB, newStr, -1, &findstmt, NULL);
++    sqlerr = SQLITE3_PREPARE(sqlDB, newStr, -1, &findstmt, NULL);
+     sqlite3_free(newStr);
+     for (i = 0; sqlerr == SQLITE_OK && i < count; i++) {
+         const void *blobData = template[i].pValue;
+@@ -911,7 +1032,7 @@ sdb_GetAttributeValueNoLock(SDB *sdb, CK
+         goto loser;
+     }
+ 
+-    sqlerr = sqlite3_prepare_v2(sqlDB, statement, -1, &stmt, NULL);
++    sqlerr = SQLITE3_PREPARE(sqlDB, statement, -1, &stmt, NULL);
+     sqlite3_free(statement);
+     statement = NULL;
+     if (sqlerr != SQLITE_OK) {
+@@ -1060,7 +1181,7 @@ sdb_SetAttributeValue(SDB *sdb, CK_OBJEC
+     if (error != CKR_OK) {
+         goto loser;
+     }
+-    sqlerr = sqlite3_prepare_v2(sqlDB, newStr, -1, &stmt, NULL);
++    sqlerr = SQLITE3_PREPARE(sqlDB, newStr, -1, &stmt, NULL);
+     if (sqlerr != SQLITE_OK)
+         goto loser;
+     for (i = 0; i < count; i++) {
+@@ -1222,7 +1343,7 @@ sdb_CreateObject(SDB *sdb, CK_OBJECT_HAN
+     if (error != CKR_OK) {
+         goto loser;
+     }
+-    sqlerr = sqlite3_prepare_v2(sqlDB, newStr, -1, &stmt, NULL);
++    sqlerr = SQLITE3_PREPARE(sqlDB, newStr, -1, &stmt, NULL);
+     if (sqlerr != SQLITE_OK)
+         goto loser;
+     sqlerr = sqlite3_bind_int(stmt, 1, *object_id);
+@@ -1295,7 +1416,7 @@ sdb_DestroyObject(SDB *sdb, CK_OBJECT_HA
+         error = CKR_HOST_MEMORY;
+         goto loser;
+     }
+-    sqlerr = sqlite3_prepare_v2(sqlDB, newStr, -1, &stmt, NULL);
++    sqlerr = SQLITE3_PREPARE(sqlDB, newStr, -1, &stmt, NULL);
+     sqlite3_free(newStr);
+     if (sqlerr != SQLITE_OK)
+         goto loser;
+@@ -1359,7 +1480,7 @@ sdb_Begin(SDB *sdb)
+         goto loser;
+     }
+ 
+-    sqlerr = sqlite3_prepare_v2(sqlDB, BEGIN_CMD, -1, &stmt, NULL);
++    sqlerr = SQLITE3_PREPARE(sqlDB, BEGIN_CMD, -1, &stmt, NULL);
+ 
+     do {
+         sqlerr = sqlite3_step(stmt);
+@@ -1437,7 +1558,7 @@ sdb_complete(SDB *sdb, const char *cmd)
+     sdb_p->sqlXactThread = NULL;
+     PR_ExitMonitor(sdb_p->dbMon);
+ 
+-    sqlerr = sqlite3_prepare_v2(sqlDB, cmd, -1, &stmt, NULL);
++    sqlerr = SQLITE3_PREPARE(sqlDB, cmd, -1, &stmt, NULL);
+ 
+     do {
+         sqlerr = sqlite3_step(stmt);
+@@ -1512,7 +1633,7 @@ sdb_GetMetaData(SDB *sdb, const char *id
+     }
+ 
+     /* handle 'test' versions of the sqlite db */
+-    sqlerr = sqlite3_prepare_v2(sqlDB, GET_PW_CMD, -1, &stmt, NULL);
++    sqlerr = SQLITE3_PREPARE(sqlDB, GET_PW_CMD, -1, &stmt, NULL);
+     /* Sigh, if we created a new table since we opened the database,
+      * the database handle will not see the new table, we need to close this
+      * database and reopen it. This is safe because we are holding the lock
+@@ -1522,7 +1643,7 @@ sdb_GetMetaData(SDB *sdb, const char *id
+         if (sqlerr != SQLITE_OK) {
+             goto loser;
+         }
+-        sqlerr = sqlite3_prepare_v2(sqlDB, GET_PW_CMD, -1, &stmt, NULL);
++        sqlerr = SQLITE3_PREPARE(sqlDB, GET_PW_CMD, -1, &stmt, NULL);
+     }
+     if (sqlerr != SQLITE_OK)
+         goto loser;
+@@ -1615,7 +1736,7 @@ sdb_PutMetaData(SDB *sdb, const char *id
+     if (item2 == NULL) {
+         cmd = MD_CREATE_CMD;
+     }
+-    sqlerr = sqlite3_prepare_v2(sqlDB, cmd, -1, &stmt, NULL);
++    sqlerr = SQLITE3_PREPARE(sqlDB, cmd, -1, &stmt, NULL);
+     if (sqlerr != SQLITE_OK)
+         goto loser;
+     sqlerr = sqlite3_bind_text(stmt, 1, id, PORT_Strlen(id), SQLITE_STATIC);

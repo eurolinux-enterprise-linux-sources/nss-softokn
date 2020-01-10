@@ -1,0 +1,1148 @@
+diff --git a/lib/freebl/fipsfreebl.c b/lib/freebl/fipsfreebl.c
+--- a/lib/freebl/fipsfreebl.c
++++ b/lib/freebl/fipsfreebl.c
+@@ -10,18 +10,20 @@
+ #ifdef FREEBL_NO_DEPEND
+ #include "stubs.h"
+ #endif
+ 
+ #include "blapi.h"
+ #include "seccomon.h" /* Required for RSA and DSA. */
+ #include "secerr.h"
+ #include "prtypes.h"
++#include "secitem.h"
++#include "pkcs11t.h"
+ 
+-#include "ec.h" /* Required for ECDSA */
++#include "ec.h" /* Required for EC */
+ 
+ /*
+  * different platforms have different ways of calling and initial entry point
+  * when the dll/.so is loaded. Most platforms support either a posix pragma
+  * or the GCC attribute. Some platforms suppor a pre-defined name, and some
+  * platforms have a link line way of invoking this function.
+  */
+ 
+@@ -283,61 +285,88 @@ freebl_fips_AES_PowerUpSelfTest(int aes_
+ 
+     /* AES-CBC Known Initialization Vector (128-bits). */
+     static const PRUint8 aes_cbc_known_initialization_vector[] =
+         { "SecurityytiruceS" };
+ 
+     /* AES Known Plaintext (128-bits). (blocksize is 128-bits) */
+     static const PRUint8 aes_known_plaintext[] = { "NetscapeepacsteN" };
+ 
++    static const PRUint8 aes_gcm_known_aad[] = { "MozillaallizoM" };
++
+     /* AES Known Ciphertext (128-bit key). */
+     static const PRUint8 aes_ecb128_known_ciphertext[] = {
+         0x3c, 0xa5, 0x96, 0xf3, 0x34, 0x6a, 0x96, 0xc1,
+         0x03, 0x88, 0x16, 0x7b, 0x20, 0xbf, 0x35, 0x47
+     };
+ 
+     static const PRUint8 aes_cbc128_known_ciphertext[] = {
+         0xcf, 0x15, 0x1d, 0x4f, 0x96, 0xe4, 0x4f, 0x63,
+         0x15, 0x54, 0x14, 0x1d, 0x4e, 0xd8, 0xd5, 0xea
+     };
+ 
++    static const PRUint8 aes_gcm128_known_ciphertext[] = {
++        0x63, 0xf4, 0x95, 0x28, 0xe6, 0x78, 0xee, 0x6e,
++        0x4f, 0xe0, 0xfc, 0x8d, 0xd7, 0xa2, 0xb1, 0xff,
++        0x0c, 0x97, 0x1b, 0x0a, 0xdd, 0x97, 0x75, 0xed,
++        0x8b, 0xde, 0xbf, 0x16, 0x5e, 0x57, 0x6b, 0x4f
++    };
++
+     /* AES Known Ciphertext (192-bit key). */
+     static const PRUint8 aes_ecb192_known_ciphertext[] = {
+         0xa0, 0x18, 0x62, 0xed, 0x88, 0x19, 0xcb, 0x62,
+         0x88, 0x1d, 0x4d, 0xfe, 0x84, 0x02, 0x89, 0x0e
+     };
+ 
+     static const PRUint8 aes_cbc192_known_ciphertext[] = {
+         0x83, 0xf7, 0xa4, 0x76, 0xd1, 0x6f, 0x07, 0xbe,
+         0x07, 0xbc, 0x43, 0x2f, 0x6d, 0xad, 0x29, 0xe1
+     };
+ 
++    static const PRUint8 aes_gcm192_known_ciphertext[] = {
++        0xc1, 0x0b, 0x92, 0x1d, 0x68, 0x21, 0xf4, 0x25,
++        0x41, 0x61, 0x20, 0x2d, 0x59, 0x7f, 0x53, 0xde,
++        0x93, 0x39, 0xab, 0x09, 0x76, 0x41, 0x57, 0x2b,
++        0x90, 0x2e, 0x44, 0xbb, 0x52, 0x03, 0xe9, 0x07
++    };
++
+     /* AES Known Ciphertext (256-bit key). */
+     static const PRUint8 aes_ecb256_known_ciphertext[] = {
+         0xdb, 0xa6, 0x52, 0x01, 0x8a, 0x70, 0xae, 0x66,
+         0x3a, 0x99, 0xd8, 0x95, 0x7f, 0xfb, 0x01, 0x67
+     };
+ 
+     static const PRUint8 aes_cbc256_known_ciphertext[] = {
+         0x37, 0xea, 0x07, 0x06, 0x31, 0x1c, 0x59, 0x27,
+         0xc5, 0xc5, 0x68, 0x71, 0x6e, 0x34, 0x40, 0x16
+     };
+ 
++    static const PRUint8 aes_gcm256_known_ciphertext[] = {
++        0x5d, 0x9e, 0xd2, 0xa2, 0x74, 0x9c, 0xd9, 0x1c,
++        0xd1, 0xc9, 0xee, 0x5d, 0xb6, 0xf2, 0xc9, 0xb6,
++        0x79, 0x27, 0x53, 0x02, 0xa3, 0xdc, 0x22, 0xce,
++        0xf4, 0xb0, 0xc1, 0x8c, 0x86, 0x51, 0xf5, 0xa1
++    };
++
+     const PRUint8 *aes_ecb_known_ciphertext =
+         (aes_key_size == FIPS_AES_128_KEY_SIZE) ? aes_ecb128_known_ciphertext : (aes_key_size == FIPS_AES_192_KEY_SIZE) ? aes_ecb192_known_ciphertext : aes_ecb256_known_ciphertext;
+ 
+     const PRUint8 *aes_cbc_known_ciphertext =
+         (aes_key_size == FIPS_AES_128_KEY_SIZE) ? aes_cbc128_known_ciphertext : (aes_key_size == FIPS_AES_192_KEY_SIZE) ? aes_cbc192_known_ciphertext : aes_cbc256_known_ciphertext;
+ 
++    const PRUint8 *aes_gcm_known_ciphertext =
++        (aes_key_size == FIPS_AES_128_KEY_SIZE) ? aes_gcm128_known_ciphertext : (aes_key_size == FIPS_AES_192_KEY_SIZE) ? aes_gcm192_known_ciphertext : aes_gcm256_known_ciphertext;
++
+     /* AES variables. */
+-    PRUint8 aes_computed_ciphertext[FIPS_AES_ENCRYPT_LENGTH];
+-    PRUint8 aes_computed_plaintext[FIPS_AES_DECRYPT_LENGTH];
++    PRUint8 aes_computed_ciphertext[FIPS_AES_ENCRYPT_LENGTH * 2];
++    PRUint8 aes_computed_plaintext[FIPS_AES_DECRYPT_LENGTH * 2];
+     AESContext *aes_context;
+     unsigned int aes_bytes_encrypted;
+     unsigned int aes_bytes_decrypted;
++    CK_GCM_PARAMS gcmParams;
+     SECStatus aes_status;
+ 
+     /*check if aes_key_size is 128, 192, or 256 bits */
+     if ((aes_key_size != FIPS_AES_128_KEY_SIZE) &&
+         (aes_key_size != FIPS_AES_192_KEY_SIZE) &&
+         (aes_key_size != FIPS_AES_256_KEY_SIZE)) {
+         PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
+         return (SECFailure);
+@@ -450,16 +479,79 @@ freebl_fips_AES_PowerUpSelfTest(int aes_
+     if ((aes_status != SECSuccess) ||
+         (aes_bytes_decrypted != FIPS_AES_DECRYPT_LENGTH) ||
+         (PORT_Memcmp(aes_computed_plaintext, aes_known_plaintext,
+                      FIPS_AES_DECRYPT_LENGTH) != 0)) {
+         PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
+         return (SECFailure);
+     }
+ 
++    /******************************************************/
++    /* AES-GCM Single-Round Known Answer Encryption Test. */
++    /******************************************************/
++
++    gcmParams.pIv = (PRUint8 *)aes_cbc_known_initialization_vector;
++    gcmParams.ulIvLen = FIPS_AES_BLOCK_SIZE;
++    gcmParams.pAAD = (PRUint8 *)aes_gcm_known_aad;
++    gcmParams.ulAADLen = sizeof(aes_gcm_known_aad);
++    gcmParams.ulTagBits = FIPS_AES_BLOCK_SIZE * 8;
++    aes_context = AES_CreateContext(aes_known_key,
++                                    (PRUint8 *)&gcmParams,
++                                    NSS_AES_GCM, PR_TRUE, aes_key_size,
++                                    FIPS_AES_BLOCK_SIZE);
++
++    if (aes_context == NULL) {
++        PORT_SetError(SEC_ERROR_NO_MEMORY);
++        return (SECFailure);
++    }
++
++    aes_status = AES_Encrypt(aes_context, aes_computed_ciphertext,
++                             &aes_bytes_encrypted, FIPS_AES_ENCRYPT_LENGTH * 2,
++                             aes_known_plaintext,
++                             FIPS_AES_DECRYPT_LENGTH);
++
++    AES_DestroyContext(aes_context, PR_TRUE);
++
++    if ((aes_status != SECSuccess) ||
++        (aes_bytes_encrypted != FIPS_AES_ENCRYPT_LENGTH * 2) ||
++        (PORT_Memcmp(aes_computed_ciphertext, aes_gcm_known_ciphertext,
++                     FIPS_AES_ENCRYPT_LENGTH * 2) != 0)) {
++        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
++        return (SECFailure);
++    }
++
++    /******************************************************/
++    /* AES-GCM Single-Round Known Answer Decryption Test. */
++    /******************************************************/
++
++    aes_context = AES_CreateContext(aes_known_key,
++                                    (PRUint8 *)&gcmParams,
++                                    NSS_AES_GCM, PR_FALSE, aes_key_size,
++                                    FIPS_AES_BLOCK_SIZE);
++
++    if (aes_context == NULL) {
++        PORT_SetError(SEC_ERROR_NO_MEMORY);
++        return (SECFailure);
++    }
++
++    aes_status = AES_Decrypt(aes_context, aes_computed_plaintext,
++                             &aes_bytes_decrypted, FIPS_AES_DECRYPT_LENGTH * 2,
++                             aes_gcm_known_ciphertext,
++                             FIPS_AES_ENCRYPT_LENGTH * 2);
++
++    AES_DestroyContext(aes_context, PR_TRUE);
++
++    if ((aes_status != SECSuccess) ||
++        (aes_bytes_decrypted != FIPS_AES_DECRYPT_LENGTH) ||
++        (PORT_Memcmp(aes_computed_plaintext, aes_known_plaintext,
++                     FIPS_AES_DECRYPT_LENGTH) != 0)) {
++        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
++        return (SECFailure);
++    }
++
+     return (SECSuccess);
+ }
+ 
+ /* Known Hash Message (512-bits).  Used for all hashes (incl. SHA-N [N>1]). */
+ static const PRUint8 known_hash_message[] = {
+     "The test message for the MD2, MD5, and SHA-1 hashing algorithms."
+ };
+ 
+@@ -1089,17 +1181,17 @@ freebl_fips_ECDSA_Test(ECParams *ecparam
+         0x7b, 0x5a, 0x3b, 0x76, 0x4e, 0x7b, 0x7c, 0xbc,
+         0xf2, 0x76, 0x1c, 0x1c, 0x7f, 0xc5, 0x53, 0x2f
+     };
+ 
+     static const PRUint8 msg[] = {
+         "Firefox and ThunderBird are awesome!"
+     };
+ 
+-    unsigned char sha1[SHA1_LENGTH]; /* SHA-1 hash (160 bits) */
++    unsigned char sha256[SHA256_LENGTH]; /* SHA-256 hash (256 bits) */
+     unsigned char sig[2 * MAX_ECKEY_LEN];
+     SECItem signature, digest;
+     ECPrivateKey *ecdsa_private_key = NULL;
+     ECPublicKey ecdsa_public_key;
+     SECStatus ecdsaStatus = SECSuccess;
+ 
+     /* Generates a new EC key pair. The private key is a supplied
+      * random value (in seed) and the public key is the result of
+@@ -1131,23 +1223,23 @@ freebl_fips_ECDSA_Test(ECParams *ecparam
+     if (ecdsaStatus != SECSuccess) {
+         goto loser;
+     }
+ 
+     /***************************************************/
+     /* ECDSA Single-Round Known Answer Signature Test. */
+     /***************************************************/
+ 
+-    ecdsaStatus = SHA1_HashBuf(sha1, msg, sizeof msg);
++    ecdsaStatus = SHA256_HashBuf(sha256, msg, sizeof msg);
+     if (ecdsaStatus != SECSuccess) {
+         goto loser;
+     }
+     digest.type = siBuffer;
+-    digest.data = sha1;
+-    digest.len = SHA1_LENGTH;
++    digest.data = sha256;
++    digest.len = SHA256_LENGTH;
+ 
+     memset(sig, 0, sizeof sig);
+     signature.type = siBuffer;
+     signature.data = sig;
+     signature.len = sizeof sig;
+ 
+     ecdsaStatus = ECDSA_SignDigestWithSeed(ecdsa_private_key, &signature,
+                                            &digest, ecdsa_Known_Seed, sizeof ecdsa_Known_Seed);
+@@ -1176,20 +1268,93 @@ loser:
+     if (ecdsaStatus != SECSuccess) {
+         PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
+         return (SECFailure);
+     }
+     return (SECSuccess);
+ }
+ 
+ static SECStatus
+-freebl_fips_ECDSA_PowerUpSelfTest()
++freebl_fips_ECDH_Test(ECParams *ecparams)
+ {
+ 
+-    /* ECDSA Known curve nistp256 == ECCCurve_X9_62_PRIME_256V1 params */
++    /* ECDH Known result (reused old CAVS vector)  */
++    static const PRUint8 ecdh_known_pub_key_1[] = {
++        EC_POINT_FORM_UNCOMPRESSED,
++        /* pubX */
++        0x16, 0x81, 0x32, 0x86, 0xc8, 0xe4, 0x3a, 0x1f,
++        0x5d, 0xe3, 0x06, 0x22, 0x8b, 0x99, 0x14, 0x25,
++        0xf7, 0x9c, 0x5b, 0x1e, 0x96, 0x84, 0x85, 0x3b,
++        0x17, 0xfe, 0xf3, 0x1c, 0x0e, 0xed, 0xc4, 0xce,
++        /* pubY */
++        0x7a, 0x44, 0xfe, 0xbd, 0x91, 0x71, 0x7d, 0x73,
++        0xd9, 0x45, 0xea, 0xae, 0x66, 0x78, 0xfa, 0x6e,
++        0x46, 0xcd, 0xfa, 0x95, 0x15, 0x47, 0x62, 0x5d,
++        0xbb, 0x1b, 0x9f, 0xe6, 0x39, 0xfc, 0xfd, 0x47
++    };
++    static const PRUint8 ecdh_known_priv_key_2[] = {
++        0xb4, 0x2a, 0xe3, 0x69, 0x19, 0xec, 0xf0, 0x42,
++        0x6d, 0x45, 0x8c, 0x94, 0x4a, 0x26, 0xa7, 0x5c,
++        0xea, 0x9d, 0xd9, 0x0f, 0x59, 0xe0, 0x1a, 0x9d,
++        0x7c, 0xb7, 0x1c, 0x04, 0x53, 0xb8, 0x98, 0x5a
++    };
++    static const PRUint8 ecdh_known_hash_result[] = {
++        0x16, 0xf3, 0x85, 0xa2, 0x41, 0xf3, 0x7f, 0xc4,
++        0x0b, 0x56, 0x47, 0xee, 0xa7, 0x74, 0xb9, 0xdb,
++        0xe1, 0xfa, 0x22, 0xe9, 0x04, 0xf1, 0xb6, 0x12,
++        0x4b, 0x44, 0x8a, 0xbb, 0xbc, 0x08, 0x2b, 0xa7,
++    };
++
++    SECItem ecdh_priv_2, ecdh_pub_1;
++    SECItem ZZ = { 0, 0, 0 };
++    SECStatus ecdhStatus = SECSuccess;
++    PRUint8 computed_hash_result[HASH_LENGTH_MAX];
++
++    ecdh_priv_2.data = (PRUint8 *)ecdh_known_priv_key_2;
++    ecdh_priv_2.len = sizeof(ecdh_known_priv_key_2);
++    ecdh_pub_1.data = (PRUint8 *)ecdh_known_pub_key_1;
++    ecdh_pub_1.len = sizeof(ecdh_known_pub_key_1);
++
++    /* Generates a new EC key pair. The private key is a supplied
++     * random value (in seed) and the public key is the result of
++     * performing a scalar point multiplication of that value with
++     * the curve's base point.
++     */
++    ecdhStatus = ECDH_Derive(&ecdh_pub_1, ecparams, &ecdh_priv_2, PR_FALSE, &ZZ);
++    if (ecdhStatus != SECSuccess) {
++        goto loser;
++    }
++    ecdhStatus = SHA256_HashBuf(computed_hash_result, ZZ.data, ZZ.len);
++    if (ecdhStatus != SECSuccess) {
++        goto loser;
++    }
++
++    if (PORT_Memcmp(computed_hash_result, ecdh_known_hash_result,
++                    sizeof(ecdh_known_hash_result)) != 0) {
++        ecdhStatus = SECFailure;
++        goto loser;
++    }
++
++loser:
++    if (ZZ.data) {
++        SECITEM_FreeItem(&ZZ, PR_FALSE);
++    }
++
++    if (ecdhStatus != SECSuccess) {
++        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
++        return (SECFailure);
++    }
++    return (SECSuccess);
++}
++
++static SECStatus
++freebl_fips_EC_PowerUpSelfTest()
++{
++
++    /* EC Known curve nistp256 == ECCCurve_X9_62_PRIME_256V1 params */
+     static const unsigned char p256_prime[] = {
+         0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+         0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+     };
+     static const unsigned char p256_a[] = {
+         0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+@@ -1212,17 +1377,17 @@ freebl_fips_ECDSA_PowerUpSelfTest()
+     static const unsigned char p256_order[] = {
+         0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+         0xFF, 0xFF, 0xFF, 0xBC, 0xE6, 0xFA, 0xAD, 0xA7, 0x17, 0x9E, 0x84, 0xF3, 0xB9,
+         0xCA, 0xC2, 0xFC, 0x63, 0x25, 0x51
+     };
+     static const unsigned char p256_encoding[] = {
+         0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07
+     };
+-    static const ECParams ecdsa_known_P256_Params = {
++    static const ECParams ec_known_P256_Params = {
+         NULL, ec_params_named,                                               /* arena, type */
+                                                                              /* fieldID */
+         { 256, ec_field_GFp,                                                 /* size and type */
+           { { siBuffer, (unsigned char *)p256_prime, sizeof(p256_prime) } }, /* u.prime */
+           0,
+           0,
+           0 },
+         /* curve */
+@@ -1245,34 +1410,39 @@ freebl_fips_ECDSA_PowerUpSelfTest()
+         { siBuffer, (unsigned char *)(p256_encoding) + 2, sizeof(p256_encoding) - 2 },
+     };
+ 
+     static const PRUint8 ecdsa_known_P256_signature[] = {
+         0x07, 0xb1, 0xcb, 0x57, 0x20, 0xa7, 0x10, 0xd6,
+         0x9d, 0x37, 0x4b, 0x1c, 0xdc, 0x35, 0x90, 0xff,
+         0x1a, 0x2d, 0x98, 0x95, 0x1b, 0x2f, 0xeb, 0x7f,
+         0xbb, 0x81, 0xca, 0xc0, 0x69, 0x75, 0xea, 0xc5,
+-        0x59, 0x6a, 0x62, 0x49, 0x3d, 0x50, 0xc9, 0xe1,
+-        0x27, 0x3b, 0xff, 0x9b, 0x13, 0x66, 0x67, 0xdd,
+-        0x7d, 0xd1, 0x0d, 0x2d, 0x7c, 0x44, 0x04, 0x1b,
+-        0x16, 0x21, 0x12, 0xc5, 0xcb, 0xbd, 0x9e, 0x75
++        0xa7, 0xd2, 0x20, 0xdd, 0x45, 0xf9, 0x2b, 0xdd,
++        0xda, 0x98, 0x99, 0x5b, 0x1c, 0x02, 0x3a, 0x27,
++        0x8b, 0x7d, 0xb6, 0xed, 0x0e, 0xe0, 0xa7, 0xac,
++        0xaa, 0x36, 0x2c, 0xfa, 0x1a, 0xdf, 0x0d, 0xe1,
+     };
+ 
+     ECParams ecparams;
+ 
+     SECStatus rv;
+ 
+     /* ECDSA GF(p) prime field curve test */
+-    ecparams = ecdsa_known_P256_Params;
++    ecparams = ec_known_P256_Params;
+     rv = freebl_fips_ECDSA_Test(&ecparams,
+                                 ecdsa_known_P256_signature,
+                                 sizeof ecdsa_known_P256_signature);
+     if (rv != SECSuccess) {
+         return (SECFailure);
+     }
++    /* ECDH GF(p) prime field curve test */
++    rv = freebl_fips_ECDH_Test(&ecparams);
++    if (rv != SECSuccess) {
++        return (SECFailure);
++    }
+ 
+     return (SECSuccess);
+ }
+ 
+ static SECStatus
+ freebl_fips_DSA_PowerUpSelfTest(void)
+ {
+     /* DSA Known P (1024-bits), Q (160-bits), and G (1024-bits) Values. */
+@@ -1413,16 +1583,148 @@ freebl_fips_DSA_PowerUpSelfTest(void)
+         PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
+         return SECFailure;
+     }
+ 
+     return (SECSuccess);
+ }
+ 
+ static SECStatus
++freebl_fips_DH_PowerUpSelfTest(void)
++{
++    /* DH Known P (2048-bits) */
++    static const PRUint8 dh_known_P[] = {
++        0xc2, 0x79, 0xbb, 0x76, 0x32, 0x0d, 0x43, 0xfd,
++        0x1b, 0x8c, 0xa2, 0x3c, 0x00, 0xdd, 0x6d, 0xef,
++        0xf8, 0x1a, 0xd9, 0xc1, 0xa2, 0xf5, 0x73, 0x2b,
++        0xdb, 0x1a, 0x3e, 0x84, 0x90, 0xeb, 0xe7, 0x8e,
++        0x5f, 0x5c, 0x6b, 0xb6, 0x61, 0x89, 0xd1, 0x03,
++        0xb0, 0x5f, 0x91, 0xe4, 0xd2, 0x82, 0x90, 0xfc,
++        0x3c, 0x49, 0x69, 0x59, 0xc1, 0x51, 0x6a, 0x85,
++        0x71, 0xe7, 0x5d, 0x72, 0x5a, 0x45, 0xad, 0x01,
++        0x6f, 0x82, 0xae, 0xec, 0x91, 0x08, 0x2e, 0x7c,
++        0x64, 0x93, 0x46, 0x1c, 0x68, 0xef, 0xc2, 0x03,
++        0x28, 0x1d, 0x75, 0x3a, 0xeb, 0x9c, 0x46, 0xf0,
++        0xc9, 0xdb, 0x99, 0x95, 0x13, 0x66, 0x4d, 0xd5,
++        0x1a, 0x78, 0x92, 0x51, 0x89, 0x72, 0x28, 0x7f,
++        0x20, 0x70, 0x41, 0x49, 0xa2, 0x86, 0xe9, 0xf9,
++        0x78, 0x5f, 0x8d, 0x2e, 0x5d, 0xfa, 0xdb, 0x57,
++        0xd4, 0x71, 0xdf, 0x66, 0xe3, 0x9e, 0x88, 0x70,
++        0xa4, 0x21, 0x44, 0x6a, 0xc7, 0xae, 0x30, 0x2c,
++        0x9c, 0x1f, 0x91, 0x57, 0xc8, 0x24, 0x34, 0x2d,
++        0x7a, 0x4a, 0x43, 0xc2, 0x5f, 0xab, 0x64, 0x2e,
++        0xaa, 0x28, 0x32, 0x95, 0x42, 0x7b, 0xa0, 0xcc,
++        0xdf, 0xfd, 0x22, 0xc8, 0x56, 0x84, 0xc1, 0x62,
++        0x15, 0xb2, 0x77, 0x86, 0x81, 0xfc, 0xa5, 0x12,
++        0x3c, 0xca, 0x28, 0x17, 0x8f, 0x03, 0x16, 0x6e,
++        0xb8, 0x24, 0xfa, 0x1b, 0x15, 0x02, 0xfd, 0x8b,
++        0xb6, 0x0a, 0x1a, 0xf7, 0x47, 0x41, 0xc5, 0x2b,
++        0x37, 0x3e, 0xa1, 0xbf, 0x68, 0xda, 0x1c, 0x55,
++        0x44, 0xc3, 0xee, 0xa1, 0x63, 0x07, 0x11, 0x3b,
++        0x5f, 0x00, 0x84, 0xb4, 0xc4, 0xe4, 0xa7, 0x97,
++        0x29, 0xf8, 0xce, 0xab, 0xfc, 0x27, 0x3e, 0x34,
++        0xe4, 0xc7, 0x81, 0x52, 0x32, 0x0e, 0x27, 0x3c,
++        0xa6, 0x70, 0x3f, 0x4a, 0x54, 0xda, 0xdd, 0x60,
++        0x26, 0xb3, 0x6e, 0x45, 0x26, 0x19, 0x41, 0x6f
++    };
++
++    static const PRUint8 dh_known_Y_1[] = {
++        0xb4, 0xc7, 0x85, 0xba, 0xa6, 0x98, 0xb3, 0x77,
++        0x41, 0x2b, 0xd9, 0x9a, 0x72, 0x90, 0xa4, 0xac,
++        0xc4, 0xf7, 0xc2, 0x23, 0x9a, 0x68, 0xe2, 0x7d,
++        0x3a, 0x54, 0x45, 0x91, 0xc1, 0xd7, 0x8a, 0x17,
++        0x54, 0xd3, 0x37, 0xaa, 0x0c, 0xcd, 0x0b, 0xe2,
++        0xf2, 0x34, 0x0f, 0x17, 0xa8, 0x07, 0x88, 0xaf,
++        0xed, 0xc1, 0x02, 0xd4, 0xdb, 0xdc, 0x0f, 0x22,
++        0x51, 0x23, 0x40, 0xb9, 0x65, 0x6d, 0x39, 0xf4,
++        0xe1, 0x8b, 0x57, 0x7d, 0xb6, 0xd3, 0xf2, 0x6b,
++        0x02, 0xa9, 0x36, 0xf0, 0x0d, 0xe3, 0xdb, 0x9a,
++        0xbf, 0x20, 0x00, 0x4d, 0xec, 0x6f, 0x68, 0x95,
++        0xee, 0x59, 0x4e, 0x3c, 0xb6, 0xda, 0x7b, 0x19,
++        0x08, 0x9a, 0xef, 0x61, 0x43, 0xf5, 0xfb, 0x25,
++        0x70, 0x19, 0xc1, 0x5f, 0x0e, 0x0f, 0x6a, 0x63,
++        0x44, 0xe9, 0xcf, 0x33, 0xce, 0x13, 0x4f, 0x34,
++        0x3c, 0x94, 0x40, 0x8d, 0xf2, 0x65, 0x42, 0xef,
++        0x70, 0x54, 0xdd, 0x5f, 0xc1, 0xd7, 0x0b, 0xa6,
++        0x06, 0xd5, 0xa6, 0x47, 0xae, 0x2c, 0x1f, 0x5a,
++        0xa6, 0xb3, 0xc1, 0x38, 0x3a, 0x3b, 0x60, 0x94,
++        0xa2, 0x95, 0xab, 0xb2, 0x86, 0x82, 0xc5, 0x3b,
++        0xb8, 0x6f, 0x3e, 0x55, 0x86, 0x84, 0xe0, 0x00,
++        0xe5, 0xef, 0xca, 0x5c, 0xec, 0x7e, 0x38, 0x0f,
++        0x82, 0xa2, 0xb1, 0xee, 0x48, 0x1b, 0x32, 0xbb,
++        0x5a, 0x33, 0xa5, 0x01, 0xba, 0xca, 0xa6, 0x64,
++        0x61, 0xb6, 0xe5, 0x5c, 0x0e, 0x5f, 0x2c, 0x66,
++        0x0d, 0x01, 0x6a, 0x20, 0x04, 0x70, 0x68, 0x82,
++        0x93, 0x29, 0x15, 0x3b, 0x7a, 0x06, 0xb2, 0x92,
++        0x61, 0xcd, 0x7e, 0xa4, 0xc1, 0x15, 0x64, 0x3b,
++        0x3c, 0x51, 0x10, 0x4c, 0x87, 0xa6, 0xaf, 0x07,
++        0xce, 0x46, 0x82, 0x75, 0xf3, 0x90, 0xf3, 0x21,
++        0x55, 0x74, 0xc2, 0xe4, 0x96, 0x7d, 0xc3, 0xe6,
++        0x33, 0xa5, 0xc6, 0x51, 0xef, 0xec, 0x90, 0x08
++    };
++
++    static const PRUint8 dh_known_x_2[] = {
++        0x9e, 0x9b, 0xc3, 0x25, 0x53, 0xf9, 0xfc, 0x92,
++        0xb6, 0xae, 0x54, 0x8e, 0x23, 0x4c, 0x94, 0xba,
++        0x41, 0xe6, 0x29, 0x33, 0xb9, 0xdb, 0xff, 0x6d,
++        0xa8, 0xb8, 0x48, 0x49, 0x66, 0x11, 0xa6, 0x13
++    };
++
++    static const PRUint8 dh_known_hash_result[] = {
++        0x93, 0xa2, 0x89, 0x1c, 0x8a, 0xc3, 0x70, 0xbf,
++        0xa7, 0xdf, 0xb6, 0xd7, 0x82, 0xfb, 0x87, 0x81,
++        0x09, 0x47, 0xf3, 0x9f, 0x5a, 0xbf, 0x4f, 0x3f,
++        0x8e, 0x5e, 0x06, 0xca, 0x30, 0xa7, 0xaf, 0x10
++    };
++
++    /* DH variables. */
++    SECStatus dhStatus;
++    SECItem dh_prime;
++    SECItem dh_pub_key_1;
++    SECItem dh_priv_key_2;
++    SECItem ZZ = { 0, 0, 0 };
++    PRUint8 computed_hash_result[HASH_LENGTH_MAX];
++
++    dh_prime.data = (PRUint8 *)dh_known_P;
++    dh_prime.len = sizeof(dh_known_P);
++    dh_pub_key_1.data = (PRUint8 *)dh_known_Y_1;
++    dh_pub_key_1.len = sizeof(dh_known_Y_1);
++    dh_priv_key_2.data = (PRUint8 *)dh_known_x_2;
++    dh_priv_key_2.len = sizeof(dh_known_x_2);
++
++    /* execute the derive */
++    dhStatus = DH_Derive(&dh_pub_key_1, &dh_prime, &dh_priv_key_2, &ZZ, dh_prime.len);
++    if (dhStatus != SECSuccess) {
++        goto loser;
++    }
++
++    dhStatus = SHA256_HashBuf(computed_hash_result, ZZ.data, ZZ.len);
++    if (dhStatus != SECSuccess) {
++        goto loser;
++    }
++
++    if (PORT_Memcmp(computed_hash_result, dh_known_hash_result,
++                    sizeof(dh_known_hash_result)) != 0) {
++        dhStatus = SECFailure;
++        goto loser;
++    }
++
++loser:
++    if (ZZ.data) {
++        SECITEM_FreeItem(&ZZ, PR_FALSE);
++    }
++
++    if (dhStatus != SECSuccess) {
++        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
++        return (SECFailure);
++    }
++    return (SECSuccess);
++}
++
++static SECStatus
+ freebl_fips_RNG_PowerUpSelfTest(void)
+ {
+     static const PRUint8 Q[] = {
+         0x85, 0x89, 0x9c, 0x77, 0xa3, 0x79, 0xff, 0x1a,
+         0x86, 0x6f, 0x2f, 0x3e, 0x2e, 0xf9, 0x8c, 0x9c,
+         0x9d, 0xef, 0xeb, 0xed
+     };
+     static const PRUint8 GENX[] = {
+@@ -1536,31 +1838,37 @@ freebl_fipsPowerUpSelfTest(unsigned int 
+ 
+         /* HMAC SHA-X Power-Up SelfTest(s). */
+         rv = freebl_fips_HMAC_PowerUpSelfTest();
+ 
+         if (rv != SECSuccess)
+             return rv;
+ 
+         /* NOTE: RSA can only be tested in full freebl. It requires access to
+-     * the locking primitives */
++         * the locking primitives */
+         /* RSA Power-Up SelfTest(s). */
+         rv = freebl_fips_RSA_PowerUpSelfTest();
+ 
+         if (rv != SECSuccess)
+             return rv;
+ 
+         /* DSA Power-Up SelfTest(s). */
+         rv = freebl_fips_DSA_PowerUpSelfTest();
+ 
+         if (rv != SECSuccess)
+             return rv;
+ 
+-        /* ECDSA Power-Up SelfTest(s). */
+-        rv = freebl_fips_ECDSA_PowerUpSelfTest();
++        /* DH Power-Up SelfTest(s). */
++        rv = freebl_fips_DH_PowerUpSelfTest();
++
++        if (rv != SECSuccess)
++            return rv;
++
++        /* EC Power-Up SelfTest(s). */
++        rv = freebl_fips_EC_PowerUpSelfTest();
+ 
+         if (rv != SECSuccess)
+             return rv;
+     }
+     /* Passed Power-Up SelfTest(s). */
+     return (SECSuccess);
+ }
+ 
+diff --git a/lib/freebl/intel-gcm-wrap.c b/lib/freebl/intel-gcm-wrap.c
+--- a/lib/freebl/intel-gcm-wrap.c
++++ b/lib/freebl/intel-gcm-wrap.c
+@@ -138,16 +138,17 @@ intel_AES_GCM_CreateContext(void *contex
+ loser:
+     PORT_Free(gcm);
+     return NULL;
+ }
+ 
+ void
+ intel_AES_GCM_DestroyContext(intel_AES_GCMContext *gcm, PRBool freeit)
+ {
++    PORT_Memset(gcm, 0, sizeof(intel_AES_GCMContext));
+     if (freeit) {
+         PORT_Free(gcm);
+     }
+ }
+ 
+ SECStatus
+ intel_AES_GCM_EncryptUpdate(intel_AES_GCMContext *gcm,
+                             unsigned char *outbuf,
+diff --git a/lib/freebl/pqg.c b/lib/freebl/pqg.c
+--- a/lib/freebl/pqg.c
++++ b/lib/freebl/pqg.c
+@@ -486,21 +486,21 @@ cleanup:
+ **  Perform steps from  FIPS 186-3, Appendix A.1.2.1 and Appendix C.6
+ **
+ **  This generates a provable prime from two smaller prime. The resulting
+ **  prime p will have q0 as a multiple of p-1. q0 can be 1.
+ **
+ ** This implments steps 4 thorough 22 of FIPS 186-3 A.1.2.1 and
+ **                steps 16 through 34 of FIPS 186-2 C.6
+ */
+-#define MAX_ST_SEED_BITS (HASH_LENGTH_MAX * PR_BITS_PER_BYTE)
+ static SECStatus
+ makePrimefromPrimesShaweTaylor(
+     HASH_HashType hashtype,          /* selected Hashing algorithm */
+     unsigned int length,             /* input. Length of prime in bits. */
++    unsigned int seedlen,            /* input seed length in bits */
+     mp_int *c0,                      /* seed prime */
+     mp_int *q,                       /* sub prime, can be 1 */
+     mp_int *prime,                   /* output.  */
+     SECItem *prime_seed,             /* input/output.  */
+     unsigned int *prime_gen_counter) /* input/output.  */
+ {
+     mp_int c;
+     mp_int c0_2;
+@@ -552,33 +552,32 @@ makePrimefromPrimesShaweTaylor(
+     */
+ 
+     /* Step 4/16 iterations = ceiling(length/outlen)-1 */
+     iterations = (length + outlen - 1) / outlen; /* NOTE: iterations +1 */
+     /* Step 5/17 old_counter = prime_gen_counter */
+     old_counter = *prime_gen_counter;
+     /*
+     ** Comment: Generate a pseudorandom integer x in the interval
+-    ** [2**(lenght-1), 2**length].
++    ** [2**(length-1), 2**length].
+     **
+     ** Step 6/18 x = 0
+     */
+     PORT_Memset(x, 0, sizeof(x));
+     /*
+     ** Step 7/19 for i = 0 to iterations do
+     **  x = x + (HASH(prime_seed + i) * 2^(i*outlen))
+     */
+     for (i = 0; i < iterations; i++) {
+         /* is bigger than prime_seed should get to */
+         CHECK_SEC_OK(addToSeedThenHash(hashtype, prime_seed, i,
+-                                       MAX_ST_SEED_BITS, &x[(iterations - i - 1) * hashlen]));
++                                       seedlen, &x[(iterations - i - 1) * hashlen]));
+     }
+     /* Step 8/20 prime_seed = prime_seed + iterations + 1 */
+-    CHECK_SEC_OK(addToSeed(prime_seed, iterations, MAX_ST_SEED_BITS,
+-                           prime_seed));
++    CHECK_SEC_OK(addToSeed(prime_seed, iterations, seedlen, prime_seed));
+     /*
+     ** Step 9/21 x = 2 ** (length-1) + x mod 2 ** (length-1)
+     **
+     **   This step mathematically sets the high bit and clears out
+     **  all the other bits higher than length. 'x' is stored
+     **  in the x array, MSB first. The above formula gives us an 'x'
+     **  which is length bytes long and has the high bit set. We also know
+     **  that length <= iterations*outlen since
+@@ -590,17 +589,17 @@ makePrimefromPrimesShaweTaylor(
+      * multiple of 8,*/
+     bit = 1 << ((length - 1) & 0x7); /* select the proper bit in the byte */
+     /* we need to zero out the rest of the bits in the byte above */
+     mask = (bit - 1);
+     /* now we set it */
+     x[offset] = (mask & x[offset]) | bit;
+     /*
+     ** Comment: Generate a candidate prime c in the interval
+-    ** [2**(lenght-1), 2**length].
++    ** [2**(length-1), 2**length].
+     **
+     ** Step 10 t = ceiling(x/(2q(p0)))
+     ** Step 22 t = ceiling(x/(2(c0)))
+     */
+     CHECK_MPI_OK(mp_read_unsigned_octets(&t, &x[offset],
+                                          hashlen * iterations - offset)); /* t = x */
+     CHECK_MPI_OK(mp_mul(c0, q, &c0_2));                                   /* c0_2 is now c0*q */
+     CHECK_MPI_OK(mp_add(&c0_2, &c0_2, &c0_2));                            /* c0_2 is now 2*q*c0 */
+@@ -619,17 +618,17 @@ makePrimefromPrimesShaweTaylor(
+ step_23:
+     CHECK_MPI_OK(mp_mul(&t, &c0_2, &c));                /* c = t*2qc0 */
+     CHECK_MPI_OK(mp_add_d(&c, (mp_digit)1, &c));        /* c= 2tqc0 + 1*/
+     if (mpl_significant_bits(&c) > length) {            /* if c > 2**length */
+         CHECK_MPI_OK(mp_sub_d(&c0_2, (mp_digit)1, &t)); /* t = 2qc0-1 */
+         /* t = 2**(length-1) + 2qc0 -1 */
+         CHECK_MPI_OK(mp_add(&two_length_minus_1, &t, &t));
+         /* t = floor((2**(length-1)+2qc0 -1)/2qco)
+-         *   = ceil(2**(lenght-2)/2qc0) */
++         *   = ceil(2**(length-2)/2qc0) */
+         CHECK_MPI_OK(mp_div(&t, &c0_2, &t, NULL));
+         CHECK_MPI_OK(mp_mul(&t, &c0_2, &c));
+         CHECK_MPI_OK(mp_add_d(&c, (mp_digit)1, &c)); /* c= 2tqc0 + 1*/
+     }
+     /* Step 13/25 prime_gen_counter = prime_gen_counter + 1*/
+     (*prime_gen_counter)++;
+     /*
+     ** Comment: Test the candidate prime c for primality; first pick an
+@@ -640,23 +639,21 @@ step_23:
+     PORT_Memset(x, 0, sizeof(x)); /* use x for a */
+     /*
+     ** Step 15/27 for i = 0 to iterations do
+     **  a = a + (HASH(prime_seed + i) * 2^(i*outlen))
+     **
+     ** NOTE: we reuse the x array for 'a' initially.
+     */
+     for (i = 0; i < iterations; i++) {
+-        /* MAX_ST_SEED_BITS is bigger than prime_seed should get to */
+         CHECK_SEC_OK(addToSeedThenHash(hashtype, prime_seed, i,
+-                                       MAX_ST_SEED_BITS, &x[(iterations - i - 1) * hashlen]));
++                                       seedlen, &x[(iterations - i - 1) * hashlen]));
+     }
+     /* Step 16/28 prime_seed = prime_seed + iterations + 1 */
+-    CHECK_SEC_OK(addToSeed(prime_seed, iterations, MAX_ST_SEED_BITS,
+-                           prime_seed));
++    CHECK_SEC_OK(addToSeed(prime_seed, iterations, seedlen, prime_seed));
+     /* Step 17/29 a = 2 + (a mod (c-3)). */
+     CHECK_MPI_OK(mp_read_unsigned_octets(&a, x, iterations * hashlen));
+     CHECK_MPI_OK(mp_sub_d(&c, (mp_digit)3, &z)); /* z = c -3 */
+     CHECK_MPI_OK(mp_mod(&a, &z, &a));            /* a = a mod c -3 */
+     CHECK_MPI_OK(mp_add_d(&a, (mp_digit)2, &a)); /* a = 2 + a mod c -3 */
+     /*
+     ** Step 18 z = a**(2tq) mod p.
+     ** Step 30 z = a**(2t) mod c.
+@@ -737,16 +734,17 @@ makePrimefromSeedShaweTaylor(
+ {
+     mp_int c;
+     mp_int c0;
+     mp_int one;
+     SECStatus rv = SECFailure;
+     int hashlen = HASH_ResultLen(hashtype);
+     int outlen = hashlen * PR_BITS_PER_BYTE;
+     int offset;
++    int seedlen = input_seed->len * 8; /*seedlen is in bits */
+     unsigned char bit, mask;
+     unsigned char x[HASH_LENGTH_MAX * 2];
+     mp_digit dummy;
+     mp_err err = MP_OKAY;
+     int i;
+ 
+     MP_DIGITS(&c) = 0;
+     MP_DIGITS(&c0) = 0;
+@@ -770,30 +768,29 @@ makePrimefromSeedShaweTaylor(
+     */
+         rv = makePrimefromSeedShaweTaylor(hashtype, (length + 1) / 2 + 1,
+                                           input_seed, &c0, prime_seed, prime_gen_counter);
+         /* Step 15 if FAILURE is returned, return (FAILURE, 0, 0, 0). */
+         if (rv != SECSuccess) {
+             goto cleanup;
+         }
+         /* Steps 16-34 */
+-        rv = makePrimefromPrimesShaweTaylor(hashtype, length, &c0, &one,
++        rv = makePrimefromPrimesShaweTaylor(hashtype, length, seedlen, &c0, &one,
+                                             prime, prime_seed, prime_gen_counter);
+         goto cleanup; /* we're done, one way or the other */
+     }
+     /* Step 3 prime_seed = input_seed */
+     CHECK_SEC_OK(SECITEM_CopyItem(NULL, prime_seed, input_seed));
+     /* Step 4 prime_gen_count = 0 */
+     *prime_gen_counter = 0;
+ 
+ step_5:
+     /* Step 5 c = Hash(prime_seed) xor Hash(prime_seed+1). */
+     CHECK_SEC_OK(HASH_HashBuf(hashtype, x, prime_seed->data, prime_seed->len));
+-    CHECK_SEC_OK(addToSeedThenHash(hashtype, prime_seed, 1,
+-                                   MAX_ST_SEED_BITS, &x[hashlen]));
++    CHECK_SEC_OK(addToSeedThenHash(hashtype, prime_seed, 1, seedlen, &x[hashlen]));
+     for (i = 0; i < hashlen; i++) {
+         x[i] = x[i] ^ x[i + hashlen];
+     }
+     /* Step 6 c = 2**length-1 + c mod 2**length-1 */
+     /*   This step mathematically sets the high bit and clears out
+     **  all the other bits higher than length. Right now c is stored
+     **  in the x array, MSB first. The above formula gives us a c which
+     **  is length bytes long and has the high bit set. We also know that
+@@ -812,17 +809,17 @@ step_5:
+     /* Step 7 c = c*floor(c/2) + 1 */
+     /* set the low bit. much easier to find (the end of the array) */
+     x[hashlen - 1] |= 1;
+     /* now that we've set our bits, we can create our candidate "c" */
+     CHECK_MPI_OK(mp_read_unsigned_octets(&c, &x[offset], hashlen - offset));
+     /* Step 8 prime_gen_counter = prime_gen_counter + 1 */
+     (*prime_gen_counter)++;
+     /* Step 9 prime_seed = prime_seed + 2 */
+-    CHECK_SEC_OK(addToSeed(prime_seed, 2, MAX_ST_SEED_BITS, prime_seed));
++    CHECK_SEC_OK(addToSeed(prime_seed, 2, seedlen, prime_seed));
+     /* Step 10 Perform deterministic primality test on c. For example, since
+     ** c is small, it's primality can be tested by trial division, See
+     ** See Appendic C.7.
+     **
+     ** We in fact test with trial division. mpi has a built int trial divider
+     ** that divides all divisors up to 2^16.
+     */
+     if (prime_tab[prime_tab_size - 1] < 0xFFF1) {
+@@ -885,17 +882,18 @@ findQfromSeed(
+     unsigned int L,             /* input.  Length of p in bits. */
+     unsigned int N,             /* input.  Length of q in bits. */
+     unsigned int g,             /* input.  Length of seed in bits. */
+     const SECItem *seed,        /* input.  */
+     mp_int *Q,                  /* input. */
+     mp_int *Q_,                 /* output. */
+     unsigned int *qseed_len,    /* output */
+     HASH_HashType *hashtypePtr, /* output. Hash uses */
+-    pqgGenType *typePtr)        /* output. Generation Type used */
++    pqgGenType *typePtr,        /* output. Generation Type used */
++    unsigned int *qgen_counter) /* output. q_counter */
+ {
+     HASH_HashType hashtype;
+     SECItem firstseed = { 0, 0, 0 };
+     SECItem qseed = { 0, 0, 0 };
+     SECStatus rv;
+ 
+     *qseed_len = 0; /* only set if FIPS186_3_ST_TYPE */
+ 
+@@ -959,16 +957,17 @@ findQfromSeed(
+          * accident, someone has been tweeking with the seeds, just
+          * fail a this point. */
+                 SECITEM_FreeItem(&qseed, PR_FALSE);
+                 return SECFailure;
+             }
+             *qseed_len = qseed.len;
+             *hashtypePtr = hashtype;
+             *typePtr = FIPS186_3_ST_TYPE;
++            *qgen_counter = count;
+             SECITEM_FreeItem(&qseed, PR_FALSE);
+             return SECSuccess;
+         }
+         SECITEM_FreeItem(&qseed, PR_FALSE);
+     }
+     /* no hash algorithms found which match seed to Q, fail */
+     return SECFailure;
+ }
+@@ -1383,29 +1382,33 @@ step_5:
+         CHECK_SEC_OK(makePrimefromSeedShaweTaylor(hashtype, N, &firstseed, &Q,
+                                                   &qseed, &qgen_counter));
+         /* Step 3. Use floor(L/2+1) and qseed to generate random prime p0
+      * using Appendix C.6 */
+         pgen_counter = 0;
+         CHECK_SEC_OK(makePrimefromSeedShaweTaylor(hashtype, (L + 1) / 2 + 1,
+                                                   &qseed, &p0, &pseed, &pgen_counter));
+         /* Steps 4-22 FIPS 186-3 appendix A.1.2.1.2 */
+-        CHECK_SEC_OK(makePrimefromPrimesShaweTaylor(hashtype, L,
++        CHECK_SEC_OK(makePrimefromPrimesShaweTaylor(hashtype, L, seedBytes * 8,
+                                                     &p0, &Q, &P, &pseed, &pgen_counter));
+ 
+         /* combine all the seeds */
+-        seed->len = firstseed.len + qseed.len + pseed.len;
++        if ((qseed.len > firstseed.len) || (pseed.len > firstseed.len)) {
++            PORT_SetError(SEC_ERROR_LIBRARY_FAILURE); /* shouldn't happen */
++            goto cleanup;
++        }
++        seed->len = firstseed.len * 3; /*handle leading zeros in pseed and qseed*/
+         seed->data = PORT_ArenaZAlloc(verify->arena, seed->len);
+         if (seed->data == NULL) {
+             goto cleanup;
+         }
+         PORT_Memcpy(seed->data, firstseed.data, firstseed.len);
+-        PORT_Memcpy(seed->data + firstseed.len, pseed.data, pseed.len);
+-        PORT_Memcpy(seed->data + firstseed.len + pseed.len, qseed.data, qseed.len);
+-        counter = 0; /* (qgen_counter << 16) | pgen_counter; */
++        PORT_Memcpy(seed->data + 2 * firstseed.len - pseed.len, pseed.data, pseed.len);
++        PORT_Memcpy(seed->data + 3 * firstseed.len - qseed.len, qseed.data, qseed.len);
++        counter = (qgen_counter << 16) | pgen_counter;
+ 
+         /* we've generated both P and Q now, skip to generating G */
+         goto generate_G;
+     }
+     /* ******************************************************************
+     ** Step 8. (Step 4 in 186-1)
+     ** "Use a robust primality testing algorithm to test whether q is prime."
+     **
+@@ -1615,16 +1618,17 @@ PQG_VerifyParams(const PQGParams *params
+ {
+     SECStatus rv = SECSuccess;
+     unsigned int g, n, L, N, offset, outlen;
+     mp_int p0, P, Q, G, P_, Q_, G_, r, h;
+     mp_err err = MP_OKAY;
+     int j;
+     unsigned int counter_max = 0; /* handle legacy L < 1024 */
+     unsigned int qseed_len;
++    unsigned int qgen_counter_ = 0;
+     SECItem pseed_ = { 0, 0, 0 };
+     HASH_HashType hashtype;
+     pqgGenType type;
+ 
+ #define CHECKPARAM(cond)      \
+     if (!(cond)) {            \
+         *result = SECFailure; \
+         goto cleanup;         \
+@@ -1694,77 +1698,104 @@ PQG_VerifyParams(const PQGParams *params
+     CHECKPARAM(mp_cmp_d(&r, 1) == 0);
+     /* 5.  Q is prime */
+     CHECKPARAM(mpp_pprime(&Q, prime_testcount_q(L, N)) == MP_YES);
+     /* 6.  P is prime */
+     CHECKPARAM(mpp_pprime(&P, prime_testcount_p(L, N)) == MP_YES);
+     /* Steps 7-12 are done only if the optional PQGVerify is supplied. */
+     /* continue processing P */
+     /* 7.  counter < 4*L */
+-    CHECKPARAM((vfy->counter == -1) || (vfy->counter < counter_max));
+     /* 8.  g >= N and g < 2*L   (g is length of seed in bits) */
+-    g = vfy->seed.len * 8;
+-    CHECKPARAM(g >= N && g < counter_max / 2);
++    /* step 7 and 8 are delayed until we determine which type of generation
++     * was used */
+     /* 9.  Q generated from SEED matches Q in PQGParams. */
+     /* This function checks all possible hash and generation types to
+      * find a Q_ which matches Q. */
++    g = vfy->seed.len * 8;
+     CHECKPARAM(findQfromSeed(L, N, g, &vfy->seed, &Q, &Q_, &qseed_len,
+-                             &hashtype, &type) == SECSuccess);
++                             &hashtype, &type, &qgen_counter_) == SECSuccess);
+     CHECKPARAM(mp_cmp(&Q, &Q_) == 0);
++    /* now we can do steps 7  & 8*/
++    if ((type == FIPS186_1_TYPE) || (type == FIPS186_3_TYPE)) {
++        CHECKPARAM((vfy->counter == -1) || (vfy->counter < counter_max));
++        CHECKPARAM(g >= N && g < counter_max / 2);
++    }
+     if (type == FIPS186_3_ST_TYPE) {
+         SECItem qseed = { 0, 0, 0 };
+         SECItem pseed = { 0, 0, 0 };
+         unsigned int first_seed_len;
+-        unsigned int pgen_counter = 0;
++        unsigned int pgen_counter_ = 0;
++        unsigned int qgen_counter = (vfy->counter >> 16) & 0xffff;
++        unsigned int pgen_counter = (vfy->counter) & 0xffff;
+ 
+         /* extract pseed and qseed from domain_parameter_seed, which is
+          * first_seed || pseed || qseed. qseed is first_seed + small_integer
+-         * pseed is qseed + small_integer. This means most of the time
++         * mod the length of first_seed. pseed is qseed + small_integer mod
++         * the length of first_seed. This means most of the time
+          * first_seed.len == qseed.len == pseed.len. Rarely qseed.len and/or
+-         * pseed.len will be one greater than first_seed.len, so we can
+-         * depend on the fact that
+-         *   first_seed.len = floor(domain_parameter_seed.len/3).
+-         * findQfromSeed returned qseed.len, so we can calculate pseed.len as
+-         *   pseed.len = domain_parameter_seed.len - first_seed.len - qseed.len
+-         * this is probably over kill, since 99.999% of the time they will all
+-         * be equal.
+-         *
+-         * With the lengths, we can now find the offsets;
++         * pseed.len will be smaller because mpi clamps them. pqgGen
++         * automatically adds the zero pad back though, so we can depend
++         * domain_parameter_seed.len to be a multiple of three. We only have
++         * to deal with the fact that the returned seeds from our functions
++         * could be shorter.
++         *   first_seed.len = domain_parameter_seed.len/3
++         * We can now find the offsets;
+          * first_seed.data = domain_parameter_seed.data + 0
+          * pseed.data = domain_parameter_seed.data + first_seed.len
+          * qseed.data = domain_parameter_seed.data
+          *         + domain_paramter_seed.len - qseed.len
+-         *
++         * We deal with pseed possibly having zero pad in the pseed check later.
+          */
+         first_seed_len = vfy->seed.len / 3;
+         CHECKPARAM(qseed_len < vfy->seed.len);
+         CHECKPARAM(first_seed_len * 8 > N - 1);
+-        CHECKPARAM(first_seed_len + qseed_len < vfy->seed.len);
++        CHECKPARAM(first_seed_len * 8 < counter_max / 2);
++        CHECKPARAM(first_seed_len >= qseed_len);
+         qseed.len = qseed_len;
+         qseed.data = vfy->seed.data + vfy->seed.len - qseed.len;
+-        pseed.len = vfy->seed.len - (first_seed_len + qseed_len);
++        pseed.len = first_seed_len;
+         pseed.data = vfy->seed.data + first_seed_len;
+ 
+         /*
+          * now complete FIPS 186-3 A.1.2.1.2. Step 1 was completed
+          * above in our initial checks, Step 2 was completed by
+          * findQfromSeed */
+ 
+         /* Step 3 (status, c0, prime_seed, prime_gen_counter) =
+         ** (ST_Random_Prime((ceil(length/2)+1, input_seed)
+         */
+         CHECK_SEC_OK(makePrimefromSeedShaweTaylor(hashtype, (L + 1) / 2 + 1,
+-                                                  &qseed, &p0, &pseed_, &pgen_counter));
++                                                  &qseed, &p0, &pseed_, &pgen_counter_));
+         /* Steps 4-22 FIPS 186-3 appendix A.1.2.1.2 */
+-        CHECK_SEC_OK(makePrimefromPrimesShaweTaylor(hashtype, L,
+-                                                    &p0, &Q_, &P_, &pseed_, &pgen_counter));
++        CHECK_SEC_OK(makePrimefromPrimesShaweTaylor(hashtype, L, first_seed_len * 8,
++                                                    &p0, &Q_, &P_, &pseed_, &pgen_counter_));
+         CHECKPARAM(mp_cmp(&P, &P_) == 0);
+         /* make sure pseed wasn't tampered with (since it is part of
+          * calculating G) */
++        if (pseed.len > pseed_.len) {
++            /* handle the case of zero pad for pseed */
++            int extra = pseed.len - pseed_.len;
++            int i;
++            for (i = 0; i < extra; i++) {
++                if (pseed.data[i] != 0) {
++                    *result = SECFailure;
++                    goto cleanup;
++                }
++            }
++            pseed.data += extra;
++            pseed.len -= extra;
++            /* the rest is handled in the normal compare below */
++        }
+         CHECKPARAM(SECITEM_CompareItem(&pseed, &pseed_) == SECEqual);
++        if (vfy->counter != -1) {
++            CHECKPARAM(pgen_counter < counter_max);
++            CHECKPARAM(qgen_counter < counter_max);
++            CHECKPARAM((pgen_counter_ == pgen_counter));
++            CHECKPARAM((qgen_counter_ == qgen_counter));
++        }
+     } else if (vfy->counter == -1) {
+         /* If counter is set to -1, we are really only verifying G, skip
+          * the remainder of the checks for P */
+         CHECKPARAM(type != FIPS186_1_TYPE); /* we only do this for DSA2 */
+     } else {
+         /* 10. P generated from (L, counter, g, SEED, Q) matches P
+          * in PQGParams. */
+         outlen = HASH_ResultLen(hashtype) * PR_BITS_PER_BYTE;
+diff --git a/lib/freebl/rijndael.c b/lib/freebl/rijndael.c
+--- a/lib/freebl/rijndael.c
++++ b/lib/freebl/rijndael.c
+@@ -1027,23 +1027,25 @@ AES_CreateContext(const unsigned char *k
+  * AES_DestroyContext
+  *
+  * Zero an AES cipher context.  If freeit is true, also free the pointer
+  * to the context.
+  */
+ void
+ AES_DestroyContext(AESContext *cx, PRBool freeit)
+ {
++    void *mem = cx->mem;
+     if (cx->worker_cx && cx->destroy) {
+         (*cx->destroy)(cx->worker_cx, PR_TRUE);
+         cx->worker_cx = NULL;
+         cx->destroy = NULL;
+     }
++    PORT_Memset(cx, 0, sizeof(AESContext));
+     if (freeit) {
+-        PORT_Free(cx->mem);
++        PORT_Free(mem);
+     }
+ }
+ 
+ /*
+  * AES_Encrypt
+  *
+  * Encrypt an arbitrary-length buffer.  The output buffer must already be
+  * allocated to at least inputLen.
+diff --git a/lib/softoken/pkcs11c.c b/lib/softoken/pkcs11c.c
+--- a/lib/softoken/pkcs11c.c
++++ b/lib/softoken/pkcs11c.c
+@@ -4708,16 +4708,24 @@ sftk_PairwiseConsistencyCheck(CK_SESSION
+                        pairwise_digest_length,
+                        signature,
+                        &signature_length);
+         if (crv != CKR_OK) {
+             PORT_Free(signature);
+             return crv;
+         }
+ 
++        /* detect trivial signing transforms */
++        if (signature_length >= pairwise_digest_length) {
++            if (PORT_Memcmp(known_digest, signature + (signature_length - pairwise_digest_length), pairwise_digest_length) == 0) {
++                PORT_Free(signature);
++                return CKR_DEVICE_ERROR;
++            }
++        }
++
+         /* Verify the known hash using the public key. */
+         crv = NSC_VerifyInit(hSession, &mech, publicKey->handle);
+         if (crv != CKR_OK) {
+             PORT_Free(signature);
+             return crv;
+         }
+ 
+         crv = NSC_Verify(hSession,
+@@ -7543,40 +7551,55 @@ NSC_DeriveKey(CK_SESSION_HANDLE hSession
+             SHA512_HashBuf(key_block, (const unsigned char *)att->attrib.pValue,
+                            att->attrib.ulValueLen);
+ 
+             crv = sftk_forceAttribute(key, CKA_VALUE, key_block, keySize);
+             break;
+ 
+         case CKM_DH_PKCS_DERIVE: {
+             SECItem derived, dhPublic;
+-            SECItem dhPrime, dhValue;
++            SECItem dhPrime, dhSubPrime, dhValue;
+             /* sourceKey - values for the local existing low key */
+             /* get prime and value attributes */
+             crv = sftk_Attribute2SecItem(NULL, &dhPrime, sourceKey, CKA_PRIME);
+-            if (crv != SECSuccess)
++            if (crv != CKR_OK)
+                 break;
+             crv = sftk_Attribute2SecItem(NULL, &dhValue, sourceKey, CKA_VALUE);
+-            if (crv != SECSuccess) {
++            if (crv != CKR_OK) {
+                 PORT_Free(dhPrime.data);
+                 break;
+             }
+ 
+             dhPublic.data = pMechanism->pParameter;
+             dhPublic.len = pMechanism->ulParameterLen;
+ 
++            /* if the caller bothered to provide Q, use Q to validate.
++             * the public key */
++            crv = sftk_Attribute2SecItem(NULL, &dhSubPrime, sourceKey, CKA_SUBPRIME);
++            if (crv == CKR_OK) {
++                rv = KEA_Verify(&dhPublic, &dhPrime, &dhSubPrime);
++                PORT_Free(dhSubPrime.data);
++                if (rv != SECSuccess) {
++                    crv = CKR_ARGUMENTS_BAD;
++                    PORT_Free(dhPrime.data);
++                    PORT_Free(dhValue.data);
++                    break;
++                }
++            }
++
+             /* calculate private value - oct */
+             rv = DH_Derive(&dhPublic, &dhPrime, &dhValue, &derived, keySize);
+ 
+             PORT_Free(dhPrime.data);
+             PORT_Free(dhValue.data);
+ 
+             if (rv == SECSuccess) {
+                 sftk_forceAttribute(key, CKA_VALUE, derived.data, derived.len);
+                 PORT_ZFree(derived.data, derived.len);
++                crv = CKR_OK;
+             } else
+                 crv = CKR_HOST_MEMORY;
+ 
+             break;
+         }
+ 
+         case CKM_ECDH1_DERIVE:
+         case CKM_ECDH1_COFACTOR_DERIVE: {

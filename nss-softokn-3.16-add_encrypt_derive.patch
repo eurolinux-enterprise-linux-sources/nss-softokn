@@ -1,0 +1,59 @@
+diff -up nss/lib/softoken/pkcs11.c.add_encrypt_derive nss/lib/softoken/pkcs11.c
+--- nss/lib/softoken/pkcs11.c.add_encrypt_derive	2018-02-27 15:47:47.000000000 +0100
++++ nss/lib/softoken/pkcs11.c	2018-03-01 16:01:05.853165433 +0100
+@@ -426,6 +426,8 @@ static const struct mechanismList mechan
+     { CKM_CONCATENATE_DATA_AND_BASE, { 1, 32, CKF_DERIVE }, PR_FALSE },
+     { CKM_XOR_BASE_AND_DATA, { 1, 32, CKF_DERIVE }, PR_FALSE },
+     { CKM_EXTRACT_KEY_FROM_KEY, { 1, 32, CKF_DERIVE }, PR_FALSE },
++    { CKM_DES_ECB_ENCRYPT_DATA, { 1, 32, CKF_DERIVE }, PR_FALSE },
++    { CKM_DES_CBC_ENCRYPT_DATA, { 1, 32, CKF_DERIVE }, PR_FALSE },
+     { CKM_DES3_ECB_ENCRYPT_DATA, { 1, 32, CKF_DERIVE }, PR_FALSE },
+     { CKM_DES3_CBC_ENCRYPT_DATA, { 1, 32, CKF_DERIVE }, PR_FALSE },
+     { CKM_AES_ECB_ENCRYPT_DATA, { 1, 32, CKF_DERIVE }, PR_FALSE },
+diff -up nss/lib/softoken/pkcs11c.c.add_encrypt_derive nss/lib/softoken/pkcs11c.c
+--- nss/lib/softoken/pkcs11c.c.add_encrypt_derive	2018-02-27 15:47:47.000000000 +0100
++++ nss/lib/softoken/pkcs11c.c	2018-03-01 16:01:18.468880916 +0100
+@@ -6935,6 +6935,43 @@ NSC_DeriveKey(CK_SESSION_HANDLE hSession
+             break;
+         }
+ 
++        case CKM_DES_ECB_ENCRYPT_DATA:
++        case CKM_DES_CBC_ENCRYPT_DATA: {
++            void *cipherInfo;
++            CK_DES_CBC_ENCRYPT_DATA_PARAMS *desEncryptPtr;
++            int mode;
++            unsigned char *iv;
++            unsigned char *data;
++            CK_ULONG len;
++
++            if (mechanism == CKM_DES_ECB_ENCRYPT_DATA) {
++                stringPtr = (CK_KEY_DERIVATION_STRING_DATA *)
++                                pMechanism->pParameter;
++                mode = NSS_DES;
++                iv = NULL;
++                data = stringPtr->pData;
++                len = stringPtr->ulLen;
++            } else {
++                mode = NSS_DES_CBC;
++                desEncryptPtr =
++                    (CK_DES_CBC_ENCRYPT_DATA_PARAMS *)
++                        pMechanism->pParameter;
++                iv = desEncryptPtr->iv;
++                data = desEncryptPtr->pData;
++                len = desEncryptPtr->length;
++            }
++            cipherInfo = DES_CreateContext((unsigned char *)att->attrib.pValue, iv, mode, PR_TRUE);
++            if (cipherInfo == NULL) {
++                crv = CKR_HOST_MEMORY;
++                break;
++            }
++            crv = sftk_DeriveEncrypt((SFTKCipher)DES_Encrypt,
++                                     cipherInfo, 8, key, keySize,
++                                     data, len);
++            DES_DestroyContext(cipherInfo, PR_TRUE);
++            break;
++        }
++
+         case CKM_DES3_ECB_ENCRYPT_DATA:
+         case CKM_DES3_CBC_ENCRYPT_DATA: {
+             void *cipherInfo;

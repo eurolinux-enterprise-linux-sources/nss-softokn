@@ -1,10 +1,11 @@
-%global nspr_version 4.10.6
+%global nspr_version 4.21.0
 %global nss_name nss
-%global nss_util_version 3.15.1
+%global nss_util_version 3.44.0
 %global unsupported_tools_directory %{_libdir}/nss/unsupported-tools
 %global saved_files_dir %{_libdir}/nss/saved
 %global prelink_conf_dir %{_sysconfdir}/prelink.conf.d/
 %global dracut_modules_dir %{_datadir}/dracut/modules.d/05nss-softokn/
+%global nss_softokn_version 3.44
 
 
 # Produce .chk files for the final stripped binaries
@@ -29,8 +30,8 @@
 
 Summary:          Network Security Services Softoken Module
 Name:             nss-softokn
-Version:          3.14.3
-Release:          23%{?dist}
+Version:          %{nss_softokn_version}.0
+Release:          5%{?dist}
 License:          MPLv2.0
 URL:              http://www.mozilla.org/projects/security/pki/nss/
 Group:            System Environment/Libraries
@@ -47,26 +48,23 @@ BuildRequires:    gawk
 BuildRequires:    psmisc
 BuildRequires:    perl
 
-Source0:          %{name}-%{version}.tar.bz2
-# The nss-softokn tar ball is a subset of nss-{version}-stripped.tar.bz2, 
+Source0:          %{name}-%{nss_softokn_version}.tar.gz
+# The nss-softokn tar ball is a subset of nss-{version}-stripped.tar.gz, 
 # Therefore we use the nss-split-softokn.sh script to keep only what we need.
 # Download the nss tarball via CVS from the nss project and follow these
 # steps to make the tarball for nss-softokn out of the one for nss:
 # cvs co nss
 # cvs nss-softokn
-# cp ../../nss/devel/${version}-stripped.tar.bz2  .
+# cp ../../nss/devel/${version}-stripped.tar.gz  .
 # sh ./nss-split-softokn.sh ${version}
-# A file named {name}-{version}-stripped.tar.bz2 should appear
+# A file named {name}-{version}-stripped.tar.gz should appear
 Source1:          nss-split-softokn.sh
 Source2:          nss-softokn.pc.in
 Source3:          nss-softokn-config.in
 Source4:          nss-softokn-prelink.conf
 Source5:          nss-softokn-dracut-install
+Source7:          nss-softokn-cavs-1.0.tar.gz
 
-Patch1:           add-relro-linker-option.patch
-Patch2:           build-nss-softoken-only.patch
-Patch3:           handle-old-or-new-system-sqlite.patch
-Patch8:           softoken-minimal-test-dependencies.patch
 # This patch uses the gcc-iquote dir option documented at
 # http://gcc.gnu.org/onlinedocs/gcc/Directory-Options.html#Directory-Options
 # to place the in-tree directories at the head of the list on list of directories
@@ -74,59 +72,41 @@ Patch8:           softoken-minimal-test-dependencies.patch
 # headers are older. Such is the case when we are starting a major update.
 # NSSUTIL_INCLUDE_DIR, after all, contains both util and freebl headers. 
 # Once has been bootstapped the patch may be removed, but it doesn't hurt to keep it.
+Patch1:           add-relro-linker-option.patch
 Patch9:           iquote.patch
-# build against nss-util-3.15.1
-Patch10: 	fix-conflicts-with-nss-util-3.15.1.patch
-# Upstream: https://bugzilla.mozilla.org/show_bug.cgi?id=857882
-# This patch for freebl and softoken
-Patch49:          mozbz857882-fbst.patch
-
-# Patch related to CVE-2015-2730
-# Upstream: https://bugzilla.mozilla.org/show_bug.cgi?id=1125025
-# from https://hg.mozilla.org/projects/nss/rev/2c05e861ce07
-Patch102:         CheckForPeqQ-or-PnoteqQ-before-adding-P-and-Q.patch
-
-# AEG GCM fixes from upstream
-# Upstream: https://bugzilla.mozilla.org/show_bug.cgi?id=853285
-# nss and tests
-# Fix AES GCM tests
-Patch51:          gcm-tests.patch
-# Add the test files for AES GCM Test Cases 1, 7, 13
-Patch52:          gcm-tests-0-6-12.patch
-# Nitpicks
-Patch53:          gcm-nits.patch
-# freebl and softoken
-Patch55:          freebl-gcm.patch
-# extra gcm syncronization with upstream
-Patch66:          gcm-extras4freebl.patch
-Patch67:          gcm-extras4softoken.patch
-Patch68:          disable_hw_gcm.patch
-# all.sh will display cpuinfo
-Patch70:          cpuinfo.patch
-Patch71:    skip-check-fork-in_GetFunctionList.patch
-# Patch applied upstream for nss-3.16
-# Upstream: https://bugzilla.mozilla.org/show_bug.cgi?id=956082
-Patch72:    p3-956082.patch
-
-# updates for FIPS
-Patch80: 	nss-softokn-3.14-fips-post.patch
-Patch81:	nss-softokn-3.14-fips.patch
-Patch82:	nss-softokn-fips-rem-old-test.patch
-
-# updates to make sure FIPS and softoken nodepend all work.
-Patch85:	nss-softokn-3.14-lowhash-test.patch
-
-
-# update outside the crypto boundary
-Patch86:	Bug-5867634-shlibsign-return-non-zero-on-failure.patch
-
-# update inside the crypto boundary
-# Upstream: https://bugzilla.mozilla.org/show_bug.cgi?id=1064636
-Patch87: cve-2014-1568-softokn.patch
-
+Patch10:          nss-softokn-noexecstack.patch
+# updates to make sure FIPS and softoken nodepend all work. Most of this 
+# is already upstream. Only the NSS_FIPS environment variable is left
+Patch85:	nss-softokn-3.44-lowhash-test.patch
 #silence sig child calls
-Patch88:	nss-softokn-3.14-block-sigchld.patch
-Patch89:	nss-softokn-3.14-freebl-dyload.patch
+#this is probably no longer needed since we stopped prelinking softoken,
+#but this is RHEL6, be conservative about what we change.
+Patch88:	nss-softokn-3.44-block-sigchld.patch
+# RHEL6 may have old versions of sqlite
+Patch90:	nss-use-old-sqlite-prepare.patch
+
+# Upstream: https://bugzilla.mozilla.org/show_bug.cgi?id=1236720
+# Although the greater part of the patch has been upstreamed, we still
+# need a downstream patch to keep the single DES mechanisms we had
+# provided in a downstream patch for compatibility reasons.
+Patch97:	   nss-softokn-3.16-add_encrypt_derive.patch
+
+# To revert the upstream change in the default behavior in:
+# https://bugzilla.mozilla.org/show_bug.cgi?id=1382736
+Patch104:         nss-softokn-fs-probe.patch
+
+# Upstream patch didn't make 3.44
+# https://bugzilla.mozilla.org/show_bug.cgi?id=1546229
+Patch200:	   nss-softokn-ike-patch.patch
+# https://bugzilla.mozilla.org/show_bug.cgi?id=1546477
+Patch201:	   nss-softokn-fips-update.patch
+# https://bugzilla.mozilla.org/show_bug.cgi?id=1473806
+Patch202:	   nss-softokn-fix-public-key-from-priv.patch
+# https://bugzilla.mozilla.org/show_bug.cgi?id=1559906
+Patch203:	   nss-softokn-tls-cavs.patch
+# Upstream: https://bugzilla.mozilla.org/show_bug.cgi?id=1515342
+Patch213:         nss-3.44-missing-softokn-kdf.patch
+
 
 %description
 Network Security Services Softoken Cryptographic Module
@@ -134,11 +114,15 @@ Network Security Services Softoken Cryptographic Module
 %package freebl
 Summary:          Freebl library for the Network Security Services
 Group:            System Environment/Base
+# Needed because nss-softokn-freebl dlopen()'s nspr and nss-util
+# https://bugzilla.redhat.com/show_bug.cgi?id=1477308
+Requires:         nspr >= %{nspr_version}
+Requires:         nss-util >= %{nss_util_version}
 Conflicts:        nss < 3.12.2.99.3-5
 Conflicts:        prelink < 0.4.3
 
 %description freebl
-NSS Softoken Cryptographic Module Freelb Library
+NSS Softoken Cryptographic Module Freebl Library
 
 Install the nss-softokn-freebl package if you need the freebl 
 library.
@@ -150,7 +134,7 @@ Provides:         nss-softokn-freebl-static%{_isa} = %{version}-%{release}
 Requires:         nss-softokn-freebl%{?_isa} = %{version}-%{release}
 
 %description freebl-devel
-NSS Softoken Cryptographic Module Freelb Library Development Tools
+NSS Softoken Cryptographic Module Freebl Library Development Tools
 This package supports special needs of some PKCS #11 module developers and
 is otherwise considered private to NSS. As such, the programming interfaces
 may change and the usual NSS binary compatibility commitments do not apply.
@@ -171,42 +155,34 @@ BuildRequires:    nss-util-devel >= %{nss_util_version}
 Header and library files for doing development with Network Security Services.
 
 %prep
-%setup -q
+%setup -q -n %{name}-%{nss_softokn_version} -a 7
 
-%patch1 -p0 -b .relro
-%patch2 -p0 -b .softokenonly
-%patch3 -p0 -b .oldsqlite
-%patch8 -p0 -b .tests
 # activate if needed when doing a major update with new apis
+%patch1 -p0 -b .relro
 %patch9 -p0 -b .iquote
-%patch10 -p0 -b .conflicts
-%patch49 -p0 -b .suiteb4fbst
-pushd mozilla/security/nss
-%patch51 -p1 -b .aesgcm1
-%patch52 -p0 -b .aesgcm2
-%patch53 -p1 -b .aesgcm3
-%patch55 -p1 -b .aesgcm5
-popd
-%patch66 -p0 -b .sync
-%patch67 -p0 -b .sync
-%patch68 -p0 -b .hw_comp
-%patch70 -p0 -b .cpuinfo
-%patch71 -p0 -b .nocheckfork
-%patch72 -p0 -b .1044666
-%patch80 -p0 -b .fips-post
-%patch81 -p0 -b .fips
-%patch82 -p0 -b .fips-rem-old-tests
+# The compiler on ppc/ppc64 builders for RHEL-6 doesn't accept -z as a
+# linker option.  Use -Wl,-z instead.
+%patch10 -p0 -b .noexecstack
 %patch85 -p0 -b .lowhash-test
-%patch86 -p0 -b .5867634
-%patch87 -p0 -b .cve_2014-1568
 %patch88 -p0 -b .block_sigchld
-%patch89 -p0 -b .freebl-dyload
+%patch90 -p0 -b .oldsqlite
 
-pushd mozilla/security/nss
-%patch102 -p1 -b .extra_check
+pushd nss
+%patch97 -p1 -b .add_encrypt_derive
+%patch104 -p1 -b .fs-probe
+%patch200 -p1 -b .ike-mech
+%patch201 -p1 -b .fips-update
+%patch203 -p1 -b .tls-cavs
+popd
+%patch202 -p1 -b .pub-priv-mech
+pushd nss
+%patch213 -p1 -b .fix_missing_kdf
 popd
 
 %build
+
+LDFLAGS+=-Wl,-z,relro
+export LDFLAGS
 
 FREEBL_NO_DEPEND=1
 export FREEBL_NO_DEPEND
@@ -217,6 +193,12 @@ export FREEBL_NO_DEPEND
 # https://bugzilla.mozilla.org/show_bug.cgi?id=717906
 FREEBL_LOWHASH=1
 export FREEBL_LOWHASH
+
+NSS_FORCE_FIPS=1
+export NSS_FORCE_FIPS
+
+OLD_SQLITE=1
+export OLD_SQLITE
 
 #FREEBL_USE_PRELINK=1
 #export FREEBL_USE_PRELINK
@@ -269,15 +251,29 @@ export IN_TREE_FREEBL_HEADERS_FIRST=1
 # Use only the basicutil subset for sectools.a
 export NSS_BUILD_SOFTOKEN_ONLY=1
 
+export NSS_DISABLE_GTESTS=1
+
+# display processor information
+CPU_INFO=`cat /proc/cpuinfo`
+echo "############## CPU INFO ##################"
+echo "${CPU_INFO}"
+echo "##########################################"
+
 # Compile softokn plus needed support
-%{__make} -C ./mozilla/security/coreconf
-%{__make} -C ./mozilla/security/dbm
-%{__make} -C ./mozilla/security/nss
+%{__make} -C ./nss/coreconf
+%{__make} -C ./nss/lib/dbm
+
+# ldvector.c, pkcs11.c, and lginit.c include nss/lib/util/verref.h, 
+# which is private export, move it to where it can be found.
+%{__mkdir_p} ./dist/private/nss
+%{__mv} ./nss/lib/util/verref.h ./dist/private/nss/verref.h
+
+%{__make} -C ./nss
 
 # Set up our package file
 # The nspr_version and nss_util_version globals used here
 # must match the ones nss-softokn has for its Requires. 
-%{__mkdir_p} ./mozilla/dist/pkgconfig
+%{__mkdir_p} ./dist/pkgconfig
 %{__cat} %{SOURCE2} | sed -e "s,%%libdir%%,%{_libdir},g" \
                           -e "s,%%prefix%%,%{_prefix},g" \
                           -e "s,%%exec_prefix%%,%{_prefix},g" \
@@ -285,11 +281,11 @@ export NSS_BUILD_SOFTOKEN_ONLY=1
                           -e "s,%%NSPR_VERSION%%,%{nspr_version},g" \
                           -e "s,%%NSSUTIL_VERSION%%,%{nss_util_version},g" \
                           -e "s,%%SOFTOKEN_VERSION%%,%{version},g" > \
-                          ./mozilla/dist/pkgconfig/nss-softokn.pc
+                          ./dist/pkgconfig/nss-softokn.pc
 
-SOFTOKEN_VMAJOR=`cat mozilla/security/nss/lib/softoken/softkver.h | grep "#define.*SOFTOKEN_VMAJOR" | awk '{print $3}'`
-SOFTOKEN_VMINOR=`cat mozilla/security/nss/lib/softoken/softkver.h | grep "#define.*SOFTOKEN_VMINOR" | awk '{print $3}'`
-SOFTOKEN_VPATCH=`cat mozilla/security/nss/lib/softoken/softkver.h | grep "#define.*SOFTOKEN_VPATCH" | awk '{print $3}'`
+SOFTOKEN_VMAJOR=`cat nss/lib/softoken/softkver.h | grep "#define.*SOFTOKEN_VMAJOR" | awk '{print $3}'`
+SOFTOKEN_VMINOR=`cat nss/lib/softoken/softkver.h | grep "#define.*SOFTOKEN_VMINOR" | awk '{print $3}'`
+SOFTOKEN_VPATCH=`cat nss/lib/softoken/softkver.h | grep "#define.*SOFTOKEN_VPATCH" | awk '{print $3}'`
 
 export SOFTOKEN_VMAJOR
 export SOFTOKEN_VMINOR
@@ -302,12 +298,16 @@ export SOFTOKEN_VPATCH
                           -e "s,@MOD_MAJOR_VERSION@,$SOFTOKEN_VMAJOR,g" \
                           -e "s,@MOD_MINOR_VERSION@,$SOFTOKEN_VMINOR,g" \
                           -e "s,@MOD_PATCH_VERSION@,$SOFTOKEN_VPATCH,g" \
-                          > ./mozilla/dist/pkgconfig/nss-softokn-config
+                          > ./dist/pkgconfig/nss-softokn-config
 
-chmod 755 ./mozilla/dist/pkgconfig/nss-softokn-config
+chmod 755 ./dist/pkgconfig/nss-softokn-config
 
 
 %check
+if [ ${DISABLETEST:-0} -eq 1 ]; then
+  echo "testing disabled"
+  exit 0
+fi
 
 # Begin -- copied from the build section
 FREEBL_NO_DEPEND=1
@@ -356,18 +356,18 @@ fi
 
 
 # enable the following line to force a test failure
-# find ./mozilla -name \*.chk | xargs rm -f
+# find . -name \*.chk | xargs rm -f
 
 # Run test suite.
 
-SPACEISBAD=`find ./mozilla/security/nss/tests | grep -c ' '` ||:
+SPACEISBAD=`find ./nss/tests | grep -c ' '` ||:
 if [ $SPACEISBAD -ne 0 ]; then
   echo "error: filenames containing space are not supported (xargs)"
   exit 1
 fi
 
-rm -rf ./mozilla/tests_results
-pushd ./mozilla/security/nss/tests/
+rm -rf ./tests_results
+pushd ./nss/tests/
 # all.sh is the test suite script
 
 # only run cipher tests for nss-softokn
@@ -380,7 +380,7 @@ HOST=localhost DOMSUF=localdomain PORT=$MYRAND NSS_CYCLES=%{?nss_cycles} NSS_TES
 
 popd
 
-TEST_FAILURES=`grep -c FAILED ./mozilla/tests_results/security/localhost.1/output.log` || :
+TEST_FAILURES=`grep -c FAILED ./tests_results/security/localhost.1/output.log` || :
 # test suite is failing on arm and has for awhile let's run the test suite but make it non fatal on arm
 %ifnarch %{arm}
 if [ $TEST_FAILURES -ne 0 ]; then
@@ -413,7 +413,7 @@ echo "test suite completed"
 # Copy the binary libraries we want
 for file in libsoftokn3.so libnssdbm3.so
 do
-  %{__install} -p -m 755 mozilla/dist/*.OBJ/lib/$file $RPM_BUILD_ROOT/%{_libdir}
+  %{__install} -p -m 755 dist/*.OBJ/lib/$file $RPM_BUILD_ROOT/%{_libdir}
 done
 
 # Because libcrypt depends on libfreebl3.so, it is special
@@ -421,7 +421,7 @@ done
 # back in /usr/lib{64} to keep everyone else working
 for file in libfreebl3.so libfreeblpriv3.so
 do
-  %{__install} -p -m 755 mozilla/dist/*.OBJ/lib/$file $RPM_BUILD_ROOT/%{_lib}
+  %{__install} -p -m 755 dist/*.OBJ/lib/$file $RPM_BUILD_ROOT/%{_lib}
   ln -sf ../../%{_lib}/$file $RPM_BUILD_ROOT/%{_libdir}/$file
 done
 
@@ -434,11 +434,11 @@ done
 # Copy the binaries we ship as unsupported
 for file in bltest fipstest shlibsign
 do
-  %{__install} -p -m 755 mozilla/dist/*.OBJ/bin/$file $RPM_BUILD_ROOT/%{unsupported_tools_directory}
+  %{__install} -p -m 755 dist/*.OBJ/bin/$file $RPM_BUILD_ROOT/%{unsupported_tools_directory}
 done
 
 # Copy the include files we want
-for file in mozilla/dist/public/nss/*.h
+for file in dist/public/nss/*.h
 do
   %{__install} -p -m 644 $file $RPM_BUILD_ROOT/%{_includedir}/nss3
 done
@@ -446,18 +446,18 @@ done
 # Copy some freebl include files we also want
 for file in blapi.h alghmac.h softoken.h
 do
-  %{__install} -p -m 644 mozilla/dist/private/nss/$file $RPM_BUILD_ROOT/%{_includedir}/nss3
+  %{__install} -p -m 644 dist/private/nss/$file $RPM_BUILD_ROOT/%{_includedir}/nss3
 done
 
 # Copy the static freebl library
 for file in libfreebl.a libsoftokn.a
 do
-%{__install} -p -m 644 mozilla/dist/*.OBJ/lib/$file $RPM_BUILD_ROOT/%{_libdir}
+%{__install} -p -m 644 dist/*.OBJ/lib/$file $RPM_BUILD_ROOT/%{_libdir}
 done
 
 # Copy the package configuration files
-%{__install} -p -m 644 ./mozilla/dist/pkgconfig/nss-softokn.pc $RPM_BUILD_ROOT/%{_libdir}/pkgconfig/nss-softokn.pc
-%{__install} -p -m 755 ./mozilla/dist/pkgconfig/nss-softokn-config $RPM_BUILD_ROOT/%{_bindir}/nss-softokn-config
+%{__install} -p -m 644 ./dist/pkgconfig/nss-softokn.pc $RPM_BUILD_ROOT/%{_libdir}/pkgconfig/nss-softokn.pc
+%{__install} -p -m 755 ./dist/pkgconfig/nss-softokn-config $RPM_BUILD_ROOT/%{_bindir}/nss-softokn-config
 
 %clean
 %{__rm} -rf $RPM_BUILD_ROOT
@@ -506,6 +506,8 @@ done
 %{_includedir}/nss3/blapit.h
 %{_includedir}/nss3/alghmac.h
 %{_includedir}/nss3/softoken.h
+%{_includedir}/nss3/lowkeyi.h
+%{_includedir}/nss3/lowkeyti.h
 
 %files devel
 %defattr(-,root,root)
@@ -516,8 +518,8 @@ done
 %dir %{_includedir}/nss3
 #
 # The following headers are those exported public in
-# mozilla/security/nss/lib/freebl/manifest.mn and
-# mozilla/security/nss/lib/softoken/manifest.mn
+# nss/lib/freebl/manifest.mn and
+# nss/lib/softoken/manifest.mn
 #
 # The following list is short because many headers, such as
 # the pkcs #11 ones, have been provided by nss-util-devel
@@ -528,6 +530,35 @@ done
 %{_includedir}/nss3/shsign.h
 
 %changelog
+* Tue Oct 15 2019 Bob Relyea <rrelyea@redhat.com> - 3.44.0-5
+- include sqlite3_open_v2 in the patch
+
+* Mon Oct 14 2019 Bob Relyea <rrelyea@redhat.com> - 3.44.0-4
+- actually turn on the old sqlite patch
+
+* Mon Oct 7 2019 Bob Relyea <rrelyea@redhat.com> - 3.44.0-3
+- add back old sqlite patch
+
+* Fri Sep 27 2019 Bob Relyea <rrelyea@redhat.com> - 3.44.0-2
+- add back add-relro patch
+
+* Thu Sep 26 2019 Bob Relyea <rrelyea@redhat.com> - 3.44.0-1
+- Rebase for Firefox
+- Resolves Bug 1743628
+
+* Mon May 23 2016 Elio Maldonado <emaldona@redhat.com> - 3.14.3-23.3
+- Build using the proper RHEL-6.8-Z release target
+- Resolves: Bug 1337821
+
+* Fri May 20 2016 Elio Maldonado <emaldona@redhat.com> - 3.14.3-23.2
+- Bump the release tag
+- Turn off AVX if the OS (or VM) doesn't support it.
+- Resolves: Bug 1337821
+
+* Fri May 20 2016 Bob Relyea <rrelyea@redhat.com> - 3.14.3-23.1
+- Turn off AVX if the OS (or VM) doesn't support it.
+- Resolves: Bug 1337821
+
 * Mon Aug 10 2015 Elio Maldonado <emaldona@redhat.com> - 3.14.3-23
 - Pick up upstream freebl patch for CVE-2015-2730
 - Check for P == Q or P ==-Q before adding P and Q

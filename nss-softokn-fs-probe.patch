@@ -1,0 +1,23 @@
+diff -up nss/lib/softoken/sdb.c.fs-probe nss/lib/softoken/sdb.c
+--- nss/lib/softoken/sdb.c.fs-probe	2019-05-10 23:14:18.000000000 +0200
++++ nss/lib/softoken/sdb.c	2019-05-16 13:26:17.898377555 +0200
+@@ -1954,7 +1954,7 @@ sdb_init(char *dbname, char *table, sdbD
+         /* By default, with no variable set, we avoid expensive measuring for
+          * most FS types. We start with inexpensive FS type checking, and
+          * might perform measuring for some types. */
+-        checkFSType = PR_TRUE;
++        measureSpeed = PR_TRUE;
+     } else if (PORT_Strcasecmp(env, "yes") == 0) {
+         enableCache = PR_TRUE;
+     } else if (PORT_Strcasecmp(env, "no") != 0) { /* not "no" => "auto" */
+@@ -2135,8 +2135,8 @@ s_open(const char *directory, const char
+         /* If the environment variable is undefined or set to yes or no,
+          * sdb_init() will ignore the value of accessOps, and we can skip the
+          * measuring.*/
+-        if (env && PORT_Strcasecmp(env, "no") != 0 &&
+-            PORT_Strcasecmp(env, "yes") != 0) {
++        if (!env || (PORT_Strcasecmp(env, "no") != 0 &&
++		     PORT_Strcasecmp(env, "yes") != 0)) {
+             accessOps = sdb_measureAccess(directory);
+         }
+     }
