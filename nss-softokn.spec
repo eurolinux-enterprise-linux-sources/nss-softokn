@@ -31,7 +31,7 @@
 Summary:          Network Security Services Softoken Module
 Name:             nss-softokn
 Version:          %{nss_softokn_version}.0
-Release:          5%{?dist}
+Release:          6%{?dist}
 License:          MPLv2.0
 URL:              http://www.mozilla.org/projects/security/pki/nss/
 Group:            System Environment/Libraries
@@ -106,6 +106,9 @@ Patch202:	   nss-softokn-fix-public-key-from-priv.patch
 Patch203:	   nss-softokn-tls-cavs.patch
 # Upstream: https://bugzilla.mozilla.org/show_bug.cgi?id=1515342
 Patch213:         nss-3.44-missing-softokn-kdf.patch
+# https://bugzilla.mozilla.org/show_bug.cgi?id=1586176
+Patch214:	   nss-3.44-encrypt-update.patch
+
 
 
 %description
@@ -177,6 +180,7 @@ popd
 %patch202 -p1 -b .pub-priv-mech
 pushd nss
 %patch213 -p1 -b .fix_missing_kdf
+%patch214 -p1 -b .encrypt-update
 popd
 
 %build
@@ -530,6 +534,9 @@ done
 %{_includedir}/nss3/shsign.h
 
 %changelog
+* Wed Dec 4 2019 Bob Relyea <rrelyea@redhat.com> - 3.44.0-6
+- Fix out-of-bounds write in NSC_EncryptUpdate (#1775909)
+
 * Tue Oct 15 2019 Bob Relyea <rrelyea@redhat.com> - 3.44.0-5
 - include sqlite3_open_v2 in the patch
 
