@@ -30,7 +30,7 @@
 Summary:          Network Security Services Softoken Module
 Name:             nss-softokn
 Version:          3.14.3
-Release:          22%{?dist}
+Release:          23.3%{?dist}
 License:          MPLv2.0
 URL:              http://www.mozilla.org/projects/security/pki/nss/
 Group:            System Environment/Libraries
@@ -81,6 +81,11 @@ Patch10: 	fix-conflicts-with-nss-util-3.15.1.patch
 # This patch for freebl and softoken
 Patch49:          mozbz857882-fbst.patch
 
+# Patch related to CVE-2015-2730
+# Upstream: https://bugzilla.mozilla.org/show_bug.cgi?id=1125025
+# from https://hg.mozilla.org/projects/nss/rev/2c05e861ce07
+Patch102:         CheckForPeqQ-or-PnoteqQ-before-adding-P-and-Q.patch
+
 # AEG GCM fixes from upstream
 # Upstream: https://bugzilla.mozilla.org/show_bug.cgi?id=853285
 # nss and tests
@@ -122,6 +127,7 @@ Patch87: cve-2014-1568-softokn.patch
 #silence sig child calls
 Patch88:	nss-softokn-3.14-block-sigchld.patch
 Patch89:	nss-softokn-3.14-freebl-dyload.patch
+Patch90:	nss-softokn-3.14-os-avx-test.patch
 
 %description
 Network Security Services Softoken Cryptographic Module
@@ -196,7 +202,11 @@ popd
 %patch87 -p0 -b .cve_2014-1568
 %patch88 -p0 -b .block_sigchld
 %patch89 -p0 -b .freebl-dyload
+%patch90 -p0 -b .os_avx_patch
 
+pushd mozilla/security/nss
+%patch102 -p1 -b .extra_check
+popd
 
 %build
 
@@ -520,18 +530,36 @@ done
 %{_includedir}/nss3/shsign.h
 
 %changelog
-* Fri Jan 28 2015 Bob Relyea <rrelyea@redhat.com> - 3.14.3-22
+* Mon May 23 2016 Elio Maldonado <emaldona@redhat.com> - 3.14.3-23.3
+- Build using the proper RHEL-6.8-Z release target
+- Resolves: Bug 1337821
+
+* Fri May 20 2016 Elio Maldonado <emaldona@redhat.com> - 3.14.3-23.2
+- Bump the release tag
+- Turn off AVX if the OS (or VM) doesn't support it.
+- Resolves: Bug 1337821
+
+* Fri May 20 2016 Bob Relyea <rrelyea@redhat.com> - 3.14.3-23.1
+- Turn off AVX if the OS (or VM) doesn't support it.
+- Resolves: Bug 1337821
+
+* Mon Aug 10 2015 Elio Maldonado <emaldona@redhat.com> - 3.14.3-23
+- Pick up upstream freebl patch for CVE-2015-2730
+- Check for P == Q or P ==-Q before adding P and Q
+
+* Wed Jan 28 2015 Bob Relyea <rrelyea@redhat.com> - 3.14.3-22
 - fix permissions on dracut install file.
+- Resolves: Bug 1182297
 
 * Fri Jan 16 2015 Bob Relyea <rrelyea@redhat.com> - 3.14.3-21
 - Require nss-softokn-freebl of at least the same version and release
-- Resolves: Bug 1183448 - nss-softokn-3.14.3-19.el6_6 breaking yum and rpm
+- Resolves: Bug 1182662 - nss-softokn-3.14.3-19.el6_6 breaking yum and rpm
 
 * Thu Jan 08 2015 Bob Relyea <rrelyea@redhat.com> - 3.14.3-20
 - keep a dummy libfreebl3.chk to keep dracut happy.
 
-* Fri Dec 12 2014 Bob Relyea <rrelyea@redhat.com> - 3.14.3-19
-- Resolves: Bug 1173187 - nss-softokn recent change causes application to segfault
+* Mon Dec 01 2014 Bob Relyea <rrelyea@redhat.com> - 3.14.3-19
+- Resolves: Bug 1166921 - nss-softokn recent change causes application to segfault
 
 * Thu Oct 22 2014 Bob Relyea <rrelyea@redhat.com> - 3.14.3-18
 - Silent sigchld events
