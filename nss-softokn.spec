@@ -30,7 +30,7 @@
 Summary:          Network Security Services Softoken Module
 Name:             nss-softokn
 Version:          3.14.3
-Release:          23.3%{?dist}
+Release:          23%{?dist}
 License:          MPLv2.0
 URL:              http://www.mozilla.org/projects/security/pki/nss/
 Group:            System Environment/Libraries
@@ -127,7 +127,6 @@ Patch87: cve-2014-1568-softokn.patch
 #silence sig child calls
 Patch88:	nss-softokn-3.14-block-sigchld.patch
 Patch89:	nss-softokn-3.14-freebl-dyload.patch
-Patch90:	nss-softokn-3.14-os-avx-test.patch
 
 %description
 Network Security Services Softoken Cryptographic Module
@@ -202,7 +201,6 @@ popd
 %patch87 -p0 -b .cve_2014-1568
 %patch88 -p0 -b .block_sigchld
 %patch89 -p0 -b .freebl-dyload
-%patch90 -p0 -b .os_avx_patch
 
 pushd mozilla/security/nss
 %patch102 -p1 -b .extra_check
@@ -530,19 +528,6 @@ done
 %{_includedir}/nss3/shsign.h
 
 %changelog
-* Mon May 23 2016 Elio Maldonado <emaldona@redhat.com> - 3.14.3-23.3
-- Build using the proper RHEL-6.8-Z release target
-- Resolves: Bug 1337821
-
-* Fri May 20 2016 Elio Maldonado <emaldona@redhat.com> - 3.14.3-23.2
-- Bump the release tag
-- Turn off AVX if the OS (or VM) doesn't support it.
-- Resolves: Bug 1337821
-
-* Fri May 20 2016 Bob Relyea <rrelyea@redhat.com> - 3.14.3-23.1
-- Turn off AVX if the OS (or VM) doesn't support it.
-- Resolves: Bug 1337821
-
 * Mon Aug 10 2015 Elio Maldonado <emaldona@redhat.com> - 3.14.3-23
 - Pick up upstream freebl patch for CVE-2015-2730
 - Check for P == Q or P ==-Q before adding P and Q
