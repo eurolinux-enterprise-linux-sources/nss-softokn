@@ -1,0 +1,38 @@
+diff -up ./mozilla/security/nss/lib/Makefile.softokenonly ./mozilla/security/nss/lib/Makefile
+--- ./mozilla/security/nss/lib/Makefile.softokenonly	2012-04-25 07:49:24.000000000 -0700
++++ ./mozilla/security/nss/lib/Makefile	2012-12-22 11:24:51.895928110 -0800
+@@ -38,6 +38,15 @@ endif
+ 
+ ifndef MOZILLA_CLIENT
+ ifeq ($(OS_ARCH),Linux)
++ifeq ($(NSS_BUILD_SOFTOKEN_ONLY),1)
++FREEBL_SRCDIR = freebl      # Add the freebl directory to DIRS.
++SOFTOKEN_SRCDIR = softoken  # Add the softoken directory to DIRS.
++endif
++endif
++endif
++
++ifndef MOZILLA_CLIENT
++ifeq ($(OS_ARCH),Linux)
+ SYSINIT_SRCDIR = sysinit  # Add the sysinit directory to DIRS.
+ endif
+ endif
+diff -up ./mozilla/security/nss/lib/manifest.mn.softokenonly ./mozilla/security/nss/lib/manifest.mn
+--- ./mozilla/security/nss/lib/manifest.mn.softokenonly	2012-04-25 07:49:24.000000000 -0700
++++ ./mozilla/security/nss/lib/manifest.mn	2012-12-22 11:23:23.875914651 -0800
+@@ -16,14 +16,7 @@ DEPTH      = ../..
+ #  smime
+ #  ckfw (builtins module)
+ #  crmf jar (not dll's)
+-DIRS =  util freebl $(SQLITE_SRCDIR) softoken \
+-	base dev pki \
+-	libpkix \
+-	certdb certhigh pk11wrap cryptohi nss \
+-	$(ZLIB_SRCDIR) ssl \
+-	pkcs12 pkcs7 smime \
+-	crmf jar \
+-	ckfw $(SYSINIT_SRCDIR) \
++DIRS =  $(FREEBL_SRCDIR) $(SQLITE_SRCDIR) $(SOFTOKEN_SRCDIR) \
+ 	$(NULL)
+ 
+ #  fortcrypt  is no longer built

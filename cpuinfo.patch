@@ -1,0 +1,24 @@
+diff -up mozilla/security/nss/tests/all.sh.cpuinfo mozilla/security/nss/tests/all.sh
+--- mozilla/security/nss/tests/all.sh.cpuinfo	2013-07-25 09:48:08.000000000 -0700
++++ mozilla/security/nss/tests/all.sh	2013-07-25 10:01:29.000000000 -0700
+@@ -102,6 +102,7 @@
+ #
+ ########################################################################
+ 
++
+ ############################## run_tests ###############################
+ # run test suites defined in TESTS variable, skip scripts defined in
+ # TESTS_SKIP variable
+@@ -307,6 +308,12 @@ if [ ! -f ${DIST}/${OBJDIR}/bin/modutil 
+     Exit "Checking for build"
+ fi
+ 
++# display processor information
++CPU_INFO=`cat /proc/cpuinfo`
++echo "############## CPU INFO ##################"
++echo "${CPU_INFO}"
++echo "##########################################"
++
+ # NOTE:
+ # Lists of enabled tests and other settings are stored to ${ENV_BACKUP}
+ # file and are are restored after every test cycle.

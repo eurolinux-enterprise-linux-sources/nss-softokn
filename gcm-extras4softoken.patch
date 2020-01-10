@@ -1,0 +1,188 @@
+diff -up mozilla/security/nss/lib/softoken/pkcs11c.c.extras4softoken mozilla/security/nss/lib/softoken/pkcs11c.c
+--- mozilla/security/nss/lib/softoken/pkcs11c.c.extras4softoken	2013-02-06 17:13:13.000000000 -0800
++++ mozilla/security/nss/lib/softoken/pkcs11c.c	2013-07-29 17:35:14.000000000 -0700
+@@ -2247,7 +2247,10 @@ finish_rsa:
+ 					*(CK_ULONG *)pMechanism->pParameter);
+ 	break;
+     case CKM_TLS_PRF_GENERAL:
+-	crv = sftk_TLSPRFInit(context, key, key_type);
++	crv = sftk_TLSPRFInit(context, key, key_type, HASH_AlgNULL);
++	break;
++    case CKM_NSS_TLS_PRF_GENERAL_SHA256:
++	crv = sftk_TLSPRFInit(context, key, key_type, HASH_AlgSHA256);
+ 	break;
+ 
+     case CKM_NSS_HMAC_CONSTANT_TIME: {
+@@ -2803,7 +2806,10 @@ finish_rsa:
+ 					*(CK_ULONG *)pMechanism->pParameter);
+ 	break;
+     case CKM_TLS_PRF_GENERAL:
+-	crv = sftk_TLSPRFInit(context, key, key_type);
++	crv = sftk_TLSPRFInit(context, key, key_type, HASH_AlgNULL);
++	break;
++    case CKM_NSS_TLS_PRF_GENERAL_SHA256:
++	crv = sftk_TLSPRFInit(context, key, key_type, HASH_AlgSHA256);
+ 	break;
+ 
+     default:
+@@ -5471,6 +5477,7 @@ CK_RV NSC_DeriveKey( CK_SESSION_HANDLE h
+     CK_OBJECT_CLASS classType	= CKO_SECRET_KEY;
+     CK_KEY_DERIVATION_STRING_DATA *stringPtr;
+     PRBool          isTLS = PR_FALSE;
++    PRBool          isSHA256 = PR_FALSE;
+     PRBool          isDH = PR_FALSE;
+     SECStatus       rv;
+     int             i;
+@@ -5570,6 +5577,10 @@ CK_RV NSC_DeriveKey( CK_SESSION_HANDLE h
+     /*
+      * generate the master secret 
+      */
++    case CKM_NSS_TLS_MASTER_KEY_DERIVE_SHA256:
++    case CKM_NSS_TLS_MASTER_KEY_DERIVE_DH_SHA256:
++	isSHA256 = PR_TRUE;
++	/* fall thru */
+     case CKM_TLS_MASTER_KEY_DERIVE:
+     case CKM_TLS_MASTER_KEY_DERIVE_DH:
+ 	isTLS = PR_TRUE;
+@@ -5582,7 +5593,8 @@ CK_RV NSC_DeriveKey( CK_SESSION_HANDLE h
+ 	unsigned char                     crsrdata[SSL3_RANDOM_LENGTH * 2];
+ 
+         if ((pMechanism->mechanism == CKM_SSL3_MASTER_KEY_DERIVE_DH) ||
+-            (pMechanism->mechanism == CKM_TLS_MASTER_KEY_DERIVE_DH))
++            (pMechanism->mechanism == CKM_TLS_MASTER_KEY_DERIVE_DH) ||
++            (pMechanism->mechanism == CKM_NSS_TLS_MASTER_KEY_DERIVE_DH_SHA256))
+ 		isDH = PR_TRUE;
+ 
+ 	/* first do the consistancy checks */
+@@ -5650,7 +5662,12 @@ CK_RV NSC_DeriveKey( CK_SESSION_HANDLE h
+  	    pms.data    = (unsigned char*)att->attrib.pValue;
+ 	    pms.len     =                 att->attrib.ulValueLen;
+ 
+-	    status = TLS_PRF(&pms, "master secret", &crsr, &master, isFIPS);
++	    if (isSHA256) {
++		status = TLS_P_hash(HASH_AlgSHA256, &pms, "master secret",
++				    &crsr, &master, isFIPS);
++	    } else {
++		status = TLS_PRF(&pms, "master secret", &crsr, &master, isFIPS);
++	    }
+ 	    if (status != SECSuccess) {
+ 	    	crv = CKR_FUNCTION_FAILED;
+ 		break;
+@@ -5709,6 +5726,9 @@ CK_RV NSC_DeriveKey( CK_SESSION_HANDLE h
+ 	break;
+       }
+ 
++    case CKM_NSS_TLS_KEY_AND_MAC_DERIVE_SHA256:
++	isSHA256 = PR_TRUE;
++	/* fall thru */
+     case CKM_TLS_KEY_AND_MAC_DERIVE:
+ 	isTLS = PR_TRUE;
+ 	/* fall thru */
+@@ -5800,8 +5820,13 @@ CK_RV NSC_DeriveKey( CK_SESSION_HANDLE h
+ 	    master.data = (unsigned char*)att->attrib.pValue;
+ 	    master.len  =                 att->attrib.ulValueLen;
+ 
+-	    status = TLS_PRF(&master, "key expansion", &srcr, &keyblk,
+-			      isFIPS);
++	    if (isSHA256) {
++		status = TLS_P_hash(HASH_AlgSHA256, &master, "key expansion",
++				    &srcr, &keyblk, isFIPS);
++	    } else {
++		status = TLS_PRF(&master, "key expansion", &srcr, &keyblk,
++				 isFIPS);
++	    }
+ 	    if (status != SECSuccess) {
+ 		goto key_and_mac_derive_fail;
+ 	    }
+@@ -5958,7 +5983,7 @@ CK_RV NSC_DeriveKey( CK_SESSION_HANDLE h
+ 	    } else {
+ 
+ 		/*
+-		** Generate TLS Export write keys and IVs.
++		** Generate TLS 1.0 Export write keys and IVs.
+ 		*/
+ 		SECStatus     status;
+ 		SECItem       secret = { siBuffer, NULL, 0 };
+diff -up mozilla/security/nss/lib/softoken/pkcs11.c.extras4softoken mozilla/security/nss/lib/softoken/pkcs11.c
+--- mozilla/security/nss/lib/softoken/pkcs11.c.extras4softoken	2013-07-29 17:35:14.000000000 -0700
++++ mozilla/security/nss/lib/softoken/pkcs11.c	2013-07-29 17:35:14.000000000 -0700
+@@ -391,6 +391,8 @@ static const struct mechanismList mechan
+      {CKM_SHA512_HMAC,		{1, 128, CKF_SN_VR},		PR_TRUE},
+      {CKM_SHA512_HMAC_GENERAL,	{1, 128, CKF_SN_VR},		PR_TRUE},
+      {CKM_TLS_PRF_GENERAL,	{0, 512, CKF_SN_VR},		PR_FALSE},
++     {CKM_NSS_TLS_PRF_GENERAL_SHA256,
++				{0, 512, CKF_SN_VR},		PR_FALSE},
+      /* ------------------------- HKDF Operations -------------------------- */
+      {CKM_NSS_HKDF_SHA1,        {1, 128, CKF_DERIVE},           PR_TRUE},
+      {CKM_NSS_HKDF_SHA256,      {1, 128, CKF_DERIVE},           PR_TRUE},
+@@ -458,8 +460,14 @@ static const struct mechanismList mechan
+      {CKM_SHA384_KEY_DERIVATION,	{ 0, 48, CKF_DERIVE},   PR_FALSE}, 
+      {CKM_SHA512_KEY_DERIVATION,	{ 0, 64, CKF_DERIVE},   PR_FALSE}, 
+      {CKM_TLS_MASTER_KEY_DERIVE,	{48, 48, CKF_DERIVE},   PR_FALSE}, 
++     {CKM_NSS_TLS_MASTER_KEY_DERIVE_SHA256,
++					{48, 48, CKF_DERIVE},	PR_FALSE},
+      {CKM_TLS_MASTER_KEY_DERIVE_DH,	{8, 128, CKF_DERIVE},   PR_FALSE}, 
++     {CKM_NSS_TLS_MASTER_KEY_DERIVE_DH_SHA256,
++					{8, 128, CKF_DERIVE},	PR_FALSE},
+      {CKM_TLS_KEY_AND_MAC_DERIVE,	{48, 48, CKF_DERIVE},   PR_FALSE}, 
++     {CKM_NSS_TLS_KEY_AND_MAC_DERIVE_SHA256,
++					{48, 48, CKF_DERIVE},	PR_FALSE},
+      /* ---------------------- PBE Key Derivations  ------------------------ */
+      {CKM_PBE_MD2_DES_CBC,		{8, 8, CKF_DERIVE},   PR_TRUE},
+      {CKM_PBE_MD5_DES_CBC,		{8, 8, CKF_DERIVE},   PR_TRUE},
+diff -up mozilla/security/nss/lib/softoken/pkcs11i.h.extras4softoken mozilla/security/nss/lib/softoken/pkcs11i.h
+--- mozilla/security/nss/lib/softoken/pkcs11i.h.extras4softoken	2013-02-05 10:10:45.000000000 -0800
++++ mozilla/security/nss/lib/softoken/pkcs11i.h	2013-07-29 17:35:14.000000000 -0700
+@@ -737,7 +737,8 @@ void sftk_MACConstantTime_DestroyContext
+ extern CK_RV
+ sftk_TLSPRFInit(SFTKSessionContext *context, 
+ 		  SFTKObject *        key, 
+-		  CK_KEY_TYPE         key_type);
++		  CK_KEY_TYPE         key_type,
++		  HASH_HashType       hash_alg);
+ 
+ SEC_END_PROTOS
+ 
+diff -up mozilla/security/nss/lib/softoken/tlsprf.c.extras4softoken mozilla/security/nss/lib/softoken/tlsprf.c
+--- mozilla/security/nss/lib/softoken/tlsprf.c.extras4softoken	2012-04-25 07:50:10.000000000 -0700
++++ mozilla/security/nss/lib/softoken/tlsprf.c	2013-07-29 17:35:14.000000000 -0700
+@@ -23,6 +23,7 @@ typedef struct {
+     PRUint32	   cxDataLen;	/* bytes of cxBufPtr containing data.        */
+     SECStatus	   cxRv;	/* records failure of void functions.        */
+     PRBool	   cxIsFIPS;	/* true if conforming to FIPS 198.           */
++    HASH_HashType  cxHashAlg;	/* hash algorithm to use for TLS 1.2+        */
+     unsigned char  cxBuf[512];	/* actual size may be larger than 512.       */
+ } TLSPRFContext;
+ 
+@@ -89,7 +90,12 @@ sftk_TLSPRFUpdate(TLSPRFContext *cx, 
+     sigItem.data = sig;
+     sigItem.len  = maxLen;
+ 
+-    rv = TLS_PRF(&secretItem, NULL, &seedItem, &sigItem, cx->cxIsFIPS);
++    if (cx->cxHashAlg != HASH_AlgNULL) {
++	rv = TLS_P_hash(cx->cxHashAlg, &secretItem, NULL, &seedItem, &sigItem,
++			cx->cxIsFIPS);
++    } else {
++	rv = TLS_PRF(&secretItem, NULL, &seedItem, &sigItem, cx->cxIsFIPS);
++    }
+     if (rv == SECSuccess && sigLen != NULL)
+     	*sigLen = sigItem.len;
+     return rv;
+@@ -136,7 +142,8 @@ sftk_TLSPRFHashDestroy(TLSPRFContext *cx
+ CK_RV
+ sftk_TLSPRFInit(SFTKSessionContext *context, 
+ 		  SFTKObject *        key, 
+-		  CK_KEY_TYPE         key_type)
++		  CK_KEY_TYPE         key_type,
++		  HASH_HashType       hash_alg)
+ {
+     SFTKAttribute * keyVal;
+     TLSPRFContext * prf_cx;
+@@ -162,6 +169,7 @@ sftk_TLSPRFInit(SFTKSessionContext *cont
+     prf_cx->cxRv      = SECSuccess;
+     prf_cx->cxIsFIPS  = (key->slot->slotID == FIPS_SLOT_ID);
+     prf_cx->cxBufPtr  = prf_cx->cxBuf;
++    prf_cx->cxHashAlg = hash_alg;
+     if (keySize)
+ 	PORT_Memcpy(prf_cx->cxBufPtr, keyVal->attrib.pValue, keySize);
+ 

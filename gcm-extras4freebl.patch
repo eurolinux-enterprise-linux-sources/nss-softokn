@@ -1,0 +1,18 @@
+diff -up mozilla/security/nss/lib/freebl/gcm.c.extras4freebl mozilla/security/nss/lib/freebl/gcm.c
+--- mozilla/security/nss/lib/freebl/gcm.c.extras	2013-07-23 22:16:36.456341389 -0700
++++ mozilla/security/nss/lib/freebl/gcm.c	2013-07-23 22:16:55.923657435 -0700
+@@ -577,10 +577,10 @@ gcmHash_Reset(gcmHashContext *ghash, con
+ 	if (rv != SECSuccess) {
+ 	    return SECFailure;
+ 	}
+-    }
+-    rv = gcmHash_Sync(ghash, blocksize);
+-    if (rv != SECSuccess) {
+-	return SECFailure;
++	rv = gcmHash_Sync(ghash, blocksize);
++	if (rv != SECSuccess) {
++	    return SECFailure;
++	}
+     }
+     return SECSuccess;
+ }

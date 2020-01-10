@@ -1,0 +1,438 @@
+diff -up ./mozilla/security/nss/cmd/lowhashtest/lowhashtest.c.lowhash-test ./mozilla/security/nss/cmd/lowhashtest/lowhashtest.c
+--- ./mozilla/security/nss/cmd/lowhashtest/lowhashtest.c.lowhash-test	2012-12-12 11:25:35.000000000 -0800
++++ ./mozilla/security/nss/cmd/lowhashtest/lowhashtest.c	2013-09-24 18:21:48.767786195 -0700
+@@ -1,23 +1,29 @@
+ #include <stdio.h>
+ #include <string.h>
+ #include <assert.h>
+-
+-#include "nspr.h"
++#include <stdlib.h>
+ 
+ /* nss headers */
+-#include "prtypes.h"
+-#include "plgetopt.h"
+-#include "hasht.h"
++#include "prtypes.h" 
++#include "hasht.h" 
+ #include "nsslowhash.h"
+-#include "secport.h"
+-#include "hasht.h"
+-#include "basicutil.h"
+ 
+ static char *progName = NULL;
+ 
++static void
++dump(FILE *io, const unsigned char *buf, int len)
++{
++    int i;
++    for (i=0; i < len; i++) {
++	if (i!=0) fprintf(io,", ");
++	fprintf(io, "0x%02x",buf[i]);
++    }
++    fprintf(io, "\n");
++}
++
+ static int test_long_message(NSSLOWInitContext *initCtx,
+ 	HASH_HashType algoType, unsigned int hashLen,
+-	const PRUint8 expected[], PRUint8 results[])
++	const unsigned char expected[], unsigned char results[])
+ {
+     unsigned int len, i, rv = 0;
+     NSSLOWHASHContext *ctx;
+@@ -27,11 +33,11 @@ static int test_long_message(NSSLOWInitC
+      * buffer and call update 1,000 times.
+      */
+     unsigned char buf[1000];
+-    (void) PORT_Memset(buf, 'a', sizeof(buf));
++    (void) memset(buf, 'a', sizeof(buf));
+ 
+     ctx = NSSLOWHASH_NewContext(initCtx, algoType);
+     if (ctx == NULL) {
+-    	SECU_PrintError(progName, "Couldn't get hash context\n");
++    	fprintf(stderr,"%s: Couldn't get hash context\n", progName);
+ 	return 1;
+     }
+ 
+@@ -41,12 +47,14 @@ static int test_long_message(NSSLOWInitC
+     }
+ 
+     NSSLOWHASH_End(ctx, results, &len, hashLen);
+-    PR_ASSERT(len == hashLen);
+-    PR_ASSERT(PORT_Memcmp(expected, results, hashLen) == 0);
+-    if (PORT_Memcmp(expected, results, len) != 0) {
+-  	SECU_PrintError(progName, "Hash mismatch\n");
+-	SECU_PrintBuf(stdout, "Expected: ", expected, hashLen);
+-	SECU_PrintBuf(stdout, "Actual:   ", results, len);
++    assert(len == hashLen);
++    assert(memcmp(expected, results, hashLen) == 0);
++    if (memcmp(expected, results, len) != 0) {
++    	fprintf(stderr,"%s: Hash mismatch\n", progName);
++	fprintf(stderr," Expected: (len=%d) ", hashLen);
++	dump(stderr,expected, hashLen);
++	fprintf(stderr," Actual: (len=%d) ", len);
++	dump(stderr, results, len);
+ 	rv = 1;
+     }
+ 
+@@ -57,33 +65,33 @@ static int test_long_message(NSSLOWInitC
+ }
+ 
+ static int test_long_message_sha1(NSSLOWInitContext *initCtx) {
+-    PRUint8 results[SHA1_LENGTH];
++    unsigned char results[SHA1_LENGTH];
+     /* Test vector from FIPS 180-2: appendix B.3.  */
+ 
+     /* 34aa973c d4c4daa4 f61eeb2b dbad2731 6534016f. */
+-    static const PRUint8 expected[SHA256_LENGTH] =
++    static const unsigned char expected[SHA256_LENGTH] =
+     { 0x34,0xaa,0x97,0x3c, 0xd4,0xc4,0xda,0xa4, 0xf6,0x1e,0xeb,0x2b,
+       0xdb,0xad,0x27,0x31, 0x65,0x34,0x01,0x6f };
+     unsigned char buf[1000];
+-    (void) PORT_Memset(buf, 'a', sizeof(buf));
++    (void) memset(buf, 'a', sizeof(buf));
+     return test_long_message(initCtx, HASH_AlgSHA1,
+ 		SHA1_LENGTH, &expected[0], results);
+ }
+ 
+ static int test_long_message_sha256(NSSLOWInitContext *initCtx) {
+-    PRUint8 results[SHA256_LENGTH];
++    unsigned char results[SHA256_LENGTH];
+     /* cdc76e5c 9914fb92 81a1c7e2 84d73e67 f1809a48 a497200e 046d39cc c7112cd0. */
+-    static const PRUint8 expected[SHA256_LENGTH] =
++    static const unsigned char expected[SHA256_LENGTH] =
+     { 0xcd,0xc7,0x6e,0x5c, 0x99,0x14,0xfb,0x92, 0x81,0xa1,0xc7,0xe2, 0x84,0xd7,0x3e,0x67,
+       0xf1,0x80,0x9a,0x48, 0xa4,0x97,0x20,0x0e, 0x04,0x6d,0x39,0xcc, 0xc7,0x11,0x2c,0xd0 };
+     unsigned char buf[1000];
+-    (void) PORT_Memset(buf, 'a', sizeof(buf));
++    (void) memset(buf, 'a', sizeof(buf));
+     return test_long_message(initCtx, HASH_AlgSHA256,
+ 		SHA256_LENGTH, &expected[0], results);
+ }
+ 
+ static int test_long_message_sha384(NSSLOWInitContext *initCtx) {
+-    PRUint8 results[SHA384_LENGTH];
++    unsigned char results[SHA384_LENGTH];
+     /* Test vector from FIPS 180-2: appendix B.3.  */
+     /*
+ 	9d0e1809716474cb 
+@@ -93,7 +101,7 @@ static int test_long_message_sha384(NSSL
+ 	07b8b3dc38ecc4eb 
+ 	ae97ddd87f3d8985.
+     */
+-    static const PRUint8 expected[SHA384_LENGTH] =
++    static const unsigned char expected[SHA384_LENGTH] =
+     { 0x9d,0x0e,0x18,0x09,0x71,0x64,0x74,0xcb, 
+       0x08,0x6e,0x83,0x4e,0x31,0x0a,0x4a,0x1c, 
+       0xed,0x14,0x9e,0x9c,0x00,0xf2,0x48,0x52,
+@@ -101,22 +109,22 @@ static int test_long_message_sha384(NSSL
+       0x07,0xb8,0xb3,0xdc,0x38,0xec,0xc4,0xeb, 
+       0xae,0x97,0xdd,0xd8,0x7f,0x3d,0x89,0x85 };
+     unsigned char buf[1000];
+-    (void) PORT_Memset(buf, 'a', sizeof(buf));
++    (void) memset(buf, 'a', sizeof(buf));
+ 
+     return test_long_message(initCtx, HASH_AlgSHA384,
+ 		SHA384_LENGTH, &expected[0], results);
+ }
+ 
+ static int test_long_message_sha512(NSSLOWInitContext *initCtx) {
+-    PRUint8 results[SHA512_LENGTH];
++    unsigned char results[SHA512_LENGTH];
+     /* Test vector from FIPS 180-2: appendix B.3.  */
+-    static const PRUint8 expected[SHA512_LENGTH] =
++    static const unsigned char expected[SHA512_LENGTH] =
+     { 0xe7,0x18,0x48,0x3d,0x0c,0xe7,0x69,0x64,0x4e,0x2e,0x42,0xc7,0xbc,0x15,0xb4,0x63,
+       0x8e,0x1f,0x98,0xb1,0x3b,0x20,0x44,0x28,0x56,0x32,0xa8,0x03,0xaf,0xa9,0x73,0xeb,
+       0xde,0x0f,0xf2,0x44,0x87,0x7e,0xa6,0x0a,0x4c,0xb0,0x43,0x2c,0xe5,0x77,0xc3,0x1b,
+       0xeb,0x00,0x9c,0x5c,0x2c,0x49,0xaa,0x2e,0x4e,0xad,0xb2,0x17,0xad,0x8c,0xc0,0x9b};
+     unsigned char buf[1000];
+-    (void) PORT_Memset(buf, 'a', sizeof(buf));
++    (void) memset(buf, 'a', sizeof(buf));
+ 
+     return test_long_message(initCtx, HASH_AlgSHA512,
+ 		SHA512_LENGTH, &expected[0], results);
+@@ -126,7 +134,7 @@ static int test_long_message_sha512(NSSL
+ static int testMessageDigest(NSSLOWInitContext *initCtx,
+ 	HASH_HashType algoType, unsigned int hashLen,
+ 	const unsigned char *message,
+-	const PRUint8 expected[], PRUint8 results[])
++	const unsigned char expected[], unsigned char results[])
+ {
+     NSSLOWHASHContext *ctx;
+     unsigned int len;
+@@ -134,20 +142,22 @@ static int testMessageDigest(NSSLOWInitC
+ 
+     ctx = NSSLOWHASH_NewContext(initCtx, algoType);
+     if (ctx == NULL) {
+-    	SECU_PrintError(progName, "Couldn't get hash context\n");
++    	fprintf(stderr, "%s: Couldn't get hash context\n", progName);
+ 	return 1;
+     }
+ 
+     NSSLOWHASH_Begin(ctx);
+-    NSSLOWHASH_Update(ctx, message, PORT_Strlen((const char *)message));
++    NSSLOWHASH_Update(ctx, message, strlen((const char *)message));
+     NSSLOWHASH_End(ctx, results, &len, hashLen);
+-    PR_ASSERT(len == hashLen);
+-    PR_ASSERT(PORT_Memcmp(expected, results, len) == 0);
++    assert(len == hashLen);
++    assert(memcmp(expected, results, len) == 0);
+ 
+-    if (PORT_Memcmp(expected, results, len) != 0) {
+-  	SECU_PrintError(progName, "Hash mismatch\n");
+-	SECU_PrintBuf(stdout, "Expected: ", expected, hashLen);
+-	SECU_PrintBuf(stdout, "Actual:   ", results, len);
++    if (memcmp(expected, results, len) != 0) {
++    	fprintf(stderr,"%s: Hash mismatch\n", progName);
++	fprintf(stderr," Expected: (len=%d) ", hashLen);
++	dump(stderr,expected, hashLen);
++	fprintf(stderr," Actual: (len=%d) ", len);
++	dump(stderr, results, len);
+ 	rv = 1;
+     }
+ 
+@@ -164,7 +174,7 @@ static int testMD5(NSSLOWInitContext *in
+ 
+     static const struct {
+ 	const unsigned char *input;
+-	const PRUint8 result[MD5_LENGTH];
++	const unsigned char result[MD5_LENGTH];
+    } md5tests[] = {
+ 	{ (unsigned char *) "",
+ 	  {0xd4,0x1d,0x8c,0xd9,0x8f,0x00,0xb2,0x04,0xe9,0x80,0x09,0x98,0xec,0xf8,0x42,0x7e} },
+@@ -182,7 +192,7 @@ static int testMD5(NSSLOWInitContext *in
+ 	  "12345678901234567890",
+ 	  {0x57,0xed,0xf4,0xa2,0x2b,0xe3,0xc9,0x55,0xac,0x49,0xda,0x2e,0x21,0x07,0xb6,0x7a} }
+     };
+-    PRUint8 results[MD5_LENGTH];
++    unsigned char results[MD5_LENGTH];
+     int rv = 0, cnt, numTests;
+ 
+     numTests = sizeof(md5tests)/sizeof(md5tests[0]);
+@@ -203,7 +213,7 @@ static int testSHA1(NSSLOWInitContext *i
+ {
+     static const struct {
+ 	const unsigned char *input;
+-	const PRUint8 result[SHA1_LENGTH];
++	const unsigned char result[SHA1_LENGTH];
+     } sha1tests[] = {
+ 	/* one block messsage */
+ 	{ (const unsigned char *)
+@@ -222,7 +232,7 @@ static int testSHA1(NSSLOWInitContext *i
+ 	}
+     };
+ 
+-    PRUint8 results[SHA1_LENGTH];
++    unsigned char results[SHA1_LENGTH];
+     int rv = 0, cnt, numTests;
+ 
+     numTests = sizeof(sha1tests)/sizeof(sha1tests[0]);
+@@ -240,7 +250,7 @@ static int testSHA224(NSSLOWInitContext 
+ {
+     static const struct {
+ 	const unsigned char *input;
+-	const PRUint8 result[SHA224_LENGTH];
++	const unsigned char result[SHA224_LENGTH];
+     } sha224tests[] = {
+ 	/* one block messsage */
+ 	{ (const unsigned char *) "abc",
+@@ -254,7 +264,7 @@ static int testSHA224(NSSLOWInitContext 
+ 	}
+     };
+ 
+-    PRUint8 results[SHA224_LENGTH];
++    unsigned char results[SHA224_LENGTH];
+     int rv = 0, cnt, numTests;
+ 
+     numTests = sizeof(sha224tests)/sizeof(sha224tests[0]);
+@@ -271,7 +281,7 @@ static int testSHA256(NSSLOWInitContext 
+ {
+     static const struct {
+ 	const unsigned char *input;
+-	const PRUint8 result[SHA256_LENGTH];
++	const unsigned char result[SHA256_LENGTH];
+     } sha256tests[] = {
+ 	/* Test vectors from FIPS 180-2: appendix B.1.  */
+ 	{ (unsigned char *) "abc",
+@@ -285,7 +295,7 @@ static int testSHA256(NSSLOWInitContext 
+ 	}
+     };
+ 
+-    PRUint8 results[SHA256_LENGTH];
++    unsigned char results[SHA256_LENGTH];
+     int rv = 0, cnt, numTests;
+ 
+     numTests = sizeof(sha256tests)/sizeof(sha256tests[0]);
+@@ -303,7 +313,7 @@ static int testSHA384(NSSLOWInitContext 
+ {
+     static const struct {
+ 	const unsigned char *input;
+-	const PRUint8 result[SHA384_LENGTH];
++	const unsigned char result[SHA384_LENGTH];
+     } sha384tests[] = {
+ 	/* Test vector from FIPS 180-2: appendix D, single-block message.  */
+ 	{ (unsigned char *) "abc",
+@@ -334,7 +344,7 @@ static int testSHA384(NSSLOWInitContext 
+          0x66,0xc3,0xe9,0xfa,0x91,0x74,0x60,0x39} }
+    };
+ 
+-    PRUint8 results[SHA384_LENGTH];
++    unsigned char results[SHA384_LENGTH];
+     int rv = 0, cnt, numTests;
+ 
+     numTests = sizeof(sha384tests)/sizeof(sha384tests[0]);
+@@ -353,7 +363,7 @@ int testSHA512(NSSLOWInitContext *initCt
+ {
+     static const struct {
+ 	const unsigned char *input;
+-	const PRUint8 result[SHA512_LENGTH];
++	const unsigned char result[SHA512_LENGTH];
+     } sha512tests[] = {
+ 	/* Test vectors from FIPS 180-2: appendix C.1.  */
+ 	{ (unsigned char *) "abc",
+@@ -372,7 +382,7 @@ int testSHA512(NSSLOWInitContext *initCt
+ 	}
+     };
+ 
+-    PRUint8 results[SHA512_LENGTH];
++    unsigned char results[SHA512_LENGTH];
+     int rv = 0, cnt, numTests;
+ 
+     numTests = sizeof(sha512tests)/sizeof(sha512tests[0]);
+@@ -406,7 +416,7 @@ int main(int argc, char **argv)
+ 
+     initCtx = NSSLOW_Init();
+     if (initCtx == NULL) {
+-	SECU_PrintError(progName, "Couldn't initialize for hashing\n");
++	fprintf(stderr, "%s: Couldn't initialize for hashing\n", progName);
+ 	return 1;
+     }
+ 
+@@ -430,7 +440,7 @@ int main(int argc, char **argv)
+     } else if (strcmp(argv[1], "SHA512") == 0) {
+ 	rv += testSHA512(initCtx);
+     } else {
+-    	SECU_PrintError(progName, "Unsupported hash type %s\n", argv[0]);
++    	fprintf(stderr,"%s: Unsupported hash type %s\n", progName, argv[0]);
+     	Usage(progName);
+     }
+ 
+diff -up ./mozilla/security/nss/lib/freebl/nsslowhash.c.lowhash-test ./mozilla/security/nss/lib/freebl/nsslowhash.c
+--- ./mozilla/security/nss/lib/freebl/nsslowhash.c.lowhash-test	2013-09-24 18:21:48.746786195 -0700
++++ ./mozilla/security/nss/lib/freebl/nsslowhash.c	2013-09-24 18:21:48.767786195 -0700
+@@ -29,6 +29,13 @@ static int nsslow_GetFIPSEnabled(void) {
+     FILE *f;
+     char d;
+     size_t size;
++    char *env = getenv("NSS_FIPS");
++
++    /* if the enviroment variable is set, force fips anyway. This lets us
++     * test FIPS mode even if the system isn't in FIPS mode */
++    if (env && *env == '1') {
++	return 1;
++    }
+ 
+     f = fopen("/proc/sys/crypto/fips_enabled", "r");
+     if (!f)
+diff -up ./mozilla/security/nss/tests/lowhash/lowhash.sh.lowhash-test ./mozilla/security/nss/tests/lowhash/lowhash.sh
+--- ./mozilla/security/nss/tests/lowhash/lowhash.sh.lowhash-test	2013-09-24 18:23:16.346786163 -0700
++++ ./mozilla/security/nss/tests/lowhash/lowhash.sh	2012-12-12 12:47:18.000000000 -0800
+@@ -0,0 +1,97 @@
++#! /bin/bash  
++#
++# This Source Code Form is subject to the terms of the Mozilla Public
++# License, v. 2.0. If a copy of the MPL was not distributed with this
++# file, You can obtain one at http://mozilla.org/MPL/2.0/.
++
++########################################################################
++# mozilla/security/nss/tests/lowhash/lowhash.sh
++#
++# Script to test basic functionallity of the NSSLoHash API
++#
++# included from 
++# --------------
++#   all.sh
++#
++# needs to work on all Linux platforms
++#
++# tests implemented:
++# lowash (verify encryption cert - bugzilla bug 119059)
++#
++# special strings
++# ---------------
++#
++########################################################################
++
++errors=0
++
++############################## lowhash_init ##############################
++# local shell function to initialize this script 
++########################################################################
++lowhash_init()
++{
++  SCRIPTNAME=lowhash.sh      # sourced - $0 would point to all.sh
++
++  if [ -z "${CLEANUP}" ] ; then     # if nobody else is responsible for
++      CLEANUP="${SCRIPTNAME}"       # cleaning this script will do it
++  fi
++
++  if [ -z "${INIT_SOURCED}" -o "${INIT_SOURCED}" != "TRUE" ]; then
++      cd ../common
++      . ./init.sh
++  fi
++  LOWHASHDIR=../lowhash
++  mkdir -p ${LOWHASHDIR}
++  if [ -f /proc/sys/crypto/fips_enabled ]; then
++    FVAL=`cat /proc/sys/crypto/fips_enabled`
++    html_head "Lowhash Tests - /proc/sys/crypto/fips_enabled is ${FVAL}"
++  else
++    html_head "Lowhash Tests"
++  fi
++  cd ${LOWHASHDIR}
++}
++
++############################## lowhash_test ##############################
++# local shell function to test basic the NSS Low Hash API both in
++# FIPS 140 compliant mode and not
++########################################################################
++lowhash_test()
++{
++  if [ ! -f ${BINDIR}/lowhashtest -a  \
++       ! -f ${BINDIR}/lowhashtest${PROG_SUFFIX} ]; then
++    echo "freebl lowhash not supported in this plaform."
++  else
++    TESTS="MD5 SHA1 SHA224 SHA256 SHA384 SHA512"
++    OLD_MODE=`echo ${NSS_FIPS}`
++    for fips_mode in 0 1; do
++      echo "lowhashtest with fips mode=${fips_mode}"
++      export NSS_FIPS=${fips_mode}
++      for TEST in ${TESTS}
++      do
++        echo "lowhashtest ${TEST}"
++        ${BINDIR}/lowhashtest ${TEST} 2>&1
++        RESULT=$?
++        html_msg ${RESULT} 0 "lowhashtest with fips mode=${fips_mode} for ${TEST}"
++      done
++    done
++    export NSS_FIPS=${OLD_MODE}
++  fi
++}
++
++############################## lowhash_cleanup ############################
++# local shell function to finish this script (no exit since it might be 
++# sourced)
++########################################################################
++lowhash_cleanup()
++{
++  html "</TABLE><BR>"
++  cd ${QADIR}
++  . common/cleanup.sh
++}
++
++################## main #################################################
++
++lowhash_init
++lowhash_test
++lowhash_cleanup
++echo "lowhash.sh done"

@@ -1,0 +1,43 @@
+diff --git a/lib/freebl/gcm.c b/lib/freebl/gcm.c
+--- a/lib/freebl/gcm.c
++++ b/lib/freebl/gcm.c
+@@ -448,17 +448,19 @@ gcmHash_Update(gcmHashContext *ghash, co
+     SECStatus rv;
+ 
+     ghash->cLen += (len*PR_BITS_PER_BYTE);
+ 
+     /* first deal with the current buffer of data. Try to fill it out so
+      * we can hash it */
+     if (ghash->bufLen) {
+ 	unsigned int needed = PR_MIN(len, blocksize - ghash->bufLen);
+-	PORT_Memcpy(ghash->buffer+ghash->bufLen, buf, needed);
++	if (needed != 0) {
++	    PORT_Memcpy(ghash->buffer+ghash->bufLen, buf, needed);
++	}
+ 	buf += needed;
+ 	len -= needed;
+ 	ghash->bufLen += needed;
+ 	if (len == 0) {
+ 	    /* didn't add enough to hash the data, nothing more do do */
+ 	    return SECSuccess;
+ 	}
+ 	PORT_Assert(ghash->bufLen == blocksize);
+@@ -809,17 +811,17 @@ GCM_DecryptUpdate(GCMContext *gcm, unsig
+     unsigned char tag[MAX_BLOCK_SIZE];
+     const unsigned char *intag;
+     unsigned int len;
+ 
+     tagBytes = (gcm->tagBits + (PR_BITS_PER_BYTE-1)) / PR_BITS_PER_BYTE;
+ 
+     /* get the authentication block */
+     if (inlen < tagBytes) {
+-	PORT_SetError(SEC_ERROR_INVALID_ARGS);
++	PORT_SetError(SEC_ERROR_INPUT_LEN);
+ 	return SECFailure;
+     }
+ 
+     inlen -= tagBytes;
+     intag = inbuf + inlen;
+ 
+     /* verify the block */
+     rv = gcmHash_Update(&gcm->ghash_context, inbuf, inlen, blocksize);

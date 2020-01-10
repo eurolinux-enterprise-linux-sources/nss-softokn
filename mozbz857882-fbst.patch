@@ -1,0 +1,40 @@
+diff -up mozilla/security/nss/lib/freebl/blapit.h.suiteb4fbst mozilla/security/nss/lib/freebl/blapit.h
+--- mozilla/security/nss/lib/freebl/blapit.h.suiteb4fbst	2013-05-20 15:18:58.704146218 -0700
++++ mozilla/security/nss/lib/freebl/blapit.h	2013-05-20 15:20:12.796862428 -0700
+@@ -81,6 +81,14 @@ typedef int __BLAPI_DEPRECATED __attribu
+  */
+ #define MAX_ECKEY_LEN 	        72	/* Bytes */
+ 
++#ifdef NSS_ECC_MORE_THAN_SUITE_B
++#define EC_MAX_KEY_BITS		571     /* in bits */
++#define EC_MIN_KEY_BITS		112     /* in bits */
++#else
++#define EC_MAX_KEY_BITS		521     /* in bits */
++#define EC_MIN_KEY_BITS		256     /* in bits */
++#endif
++
+ /* EC point compression format */
+ #define EC_POINT_FORM_COMPRESSED_Y0    0x02
+ #define EC_POINT_FORM_COMPRESSED_Y1    0x03
+diff -up mozilla/security/nss/lib/softoken/pkcs11.c.suiteb4fbst mozilla/security/nss/lib/softoken/pkcs11.c
+--- mozilla/security/nss/lib/softoken/pkcs11.c.suiteb4fbst	2013-05-20 15:21:11.775431607 -0700
++++ mozilla/security/nss/lib/softoken/pkcs11.c	2013-05-20 15:23:19.037657190 -0700
+@@ -304,10 +304,14 @@ static const struct mechanismList mechan
+ 				 CKF_DERIVE}, 	PR_TRUE}, 
+ #ifdef NSS_ENABLE_ECC
+      /* -------------------- Elliptic Curve Operations --------------------- */
+-     {CKM_EC_KEY_PAIR_GEN,      {112, 571, CKF_GENERATE_KEY_PAIR|CKF_EC_BPNU}, PR_TRUE}, 
+-     {CKM_ECDH1_DERIVE,         {112, 571, CKF_DERIVE|CKF_EC_BPNU}, PR_TRUE}, 
+-     {CKM_ECDSA,                {112, 571, CKF_SN_VR|CKF_EC_BPNU}, PR_TRUE}, 
+-     {CKM_ECDSA_SHA1,           {112, 571, CKF_SN_VR|CKF_EC_BPNU}, PR_TRUE}, 
++     {CKM_EC_KEY_PAIR_GEN,      {EC_MIN_KEY_BITS, EC_MAX_KEY_BITS, 
++				 CKF_GENERATE_KEY_PAIR|CKF_EC_BPNU}, PR_TRUE}, 
++     {CKM_ECDH1_DERIVE,         {EC_MIN_KEY_BITS, EC_MAX_KEY_BITS,
++				 CKF_DERIVE|CKF_EC_BPNU}, PR_TRUE}, 
++     {CKM_ECDSA,                {EC_MIN_KEY_BITS, EC_MAX_KEY_BITS,
++				 CKF_SN_VR|CKF_EC_BPNU}, PR_TRUE}, 
++     {CKM_ECDSA_SHA1,           {EC_MIN_KEY_BITS, EC_MAX_KEY_BITS,
++				 CKF_SN_VR|CKF_EC_BPNU}, PR_TRUE}, 
+ #endif /* NSS_ENABLE_ECC */
+      /* ------------------------- RC2 Operations --------------------------- */
+      {CKM_RC2_KEY_GEN,		{1, 128, CKF_GENERATE},		PR_TRUE},

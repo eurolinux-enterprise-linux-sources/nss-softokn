@@ -1,0 +1,504 @@
+diff -up ./mozilla/security/nss/lib/freebl/fipsfreebl.c.rem_old_tests ./mozilla/security/nss/lib/freebl/fipsfreebl.c
+--- ./mozilla/security/nss/lib/freebl/fipsfreebl.c.rem_old_tests	2014-06-03 17:30:49.723347512 -0700
++++ ./mozilla/security/nss/lib/freebl/fipsfreebl.c	2014-06-03 17:39:19.236347322 -0700
+@@ -145,373 +145,6 @@ BOOL WINAPI DllMain(
+ #define FIPS_RNG_XKEY_LENGTH                    32  /* 256-bits */
+ 
+ static SECStatus
+-freebl_fips_RC2_PowerUpSelfTest( void )
+-{
+-    /* RC2 Known Key (40-bits). */
+-    static const PRUint8 rc2_known_key[] = { "RSARC" };
+-
+-    /* RC2-CBC Known Initialization Vector (64-bits). */
+-    static const PRUint8 rc2_cbc_known_initialization_vector[] = {"Security"};
+-
+-    /* RC2 Known Plaintext (64-bits). */
+-    static const PRUint8 rc2_ecb_known_plaintext[] = {"Netscape"};
+-    static const PRUint8 rc2_cbc_known_plaintext[] = {"Netscape"};
+-
+-    /* RC2 Known Ciphertext (64-bits). */
+-    static const PRUint8 rc2_ecb_known_ciphertext[] = {
+-				  0x1a,0x71,0x33,0x54,0x8d,0x5c,0xd2,0x30};
+-    static const PRUint8 rc2_cbc_known_ciphertext[] = {
+-				  0xff,0x41,0xdb,0x94,0x8a,0x4c,0x33,0xb3};
+-
+-    /* RC2 variables. */
+-    PRUint8        rc2_computed_ciphertext[FIPS_RC2_ENCRYPT_LENGTH];
+-    PRUint8        rc2_computed_plaintext[FIPS_RC2_DECRYPT_LENGTH];
+-    RC2Context *   rc2_context;
+-    unsigned int   rc2_bytes_encrypted;
+-    unsigned int   rc2_bytes_decrypted;
+-    SECStatus      rc2_status;
+-
+-
+-    /******************************************************/
+-    /* RC2-ECB Single-Round Known Answer Encryption Test: */
+-    /******************************************************/
+-
+-    rc2_context = RC2_CreateContext( rc2_known_key, FIPS_RC2_KEY_LENGTH,
+-                                     NULL, NSS_RC2,
+-                                     FIPS_RC2_KEY_LENGTH );
+-
+-    if( rc2_context == NULL ) {
+-        PORT_SetError( SEC_ERROR_NO_MEMORY );
+-        return( SECFailure );
+-    }
+-
+-    rc2_status = RC2_Encrypt( rc2_context, rc2_computed_ciphertext,
+-                              &rc2_bytes_encrypted, FIPS_RC2_ENCRYPT_LENGTH,
+-                              rc2_ecb_known_plaintext,
+-                              FIPS_RC2_DECRYPT_LENGTH );
+-
+-    RC2_DestroyContext( rc2_context, PR_TRUE );
+-
+-    if( ( rc2_status != SECSuccess ) ||
+-        ( rc2_bytes_encrypted != FIPS_RC2_ENCRYPT_LENGTH ) ||
+-        ( PORT_Memcmp( rc2_computed_ciphertext, rc2_ecb_known_ciphertext,
+-                       FIPS_RC2_ENCRYPT_LENGTH ) != 0 ) ) {
+-        PORT_SetError( SEC_ERROR_LIBRARY_FAILURE );
+-        return( SECFailure );
+-    }
+-
+-
+-    /******************************************************/
+-    /* RC2-ECB Single-Round Known Answer Decryption Test: */
+-    /******************************************************/
+-
+-    rc2_context = RC2_CreateContext( rc2_known_key, FIPS_RC2_KEY_LENGTH,
+-                                     NULL, NSS_RC2,
+-                                     FIPS_RC2_KEY_LENGTH );
+-
+-    if( rc2_context == NULL ) {
+-        PORT_SetError( SEC_ERROR_NO_MEMORY );
+-        return( SECFailure );
+-    }
+-
+-    rc2_status = RC2_Decrypt( rc2_context, rc2_computed_plaintext,
+-                              &rc2_bytes_decrypted, FIPS_RC2_DECRYPT_LENGTH,
+-                              rc2_ecb_known_ciphertext,
+-                              FIPS_RC2_ENCRYPT_LENGTH );
+-
+-    RC2_DestroyContext( rc2_context, PR_TRUE );
+-
+-    if( ( rc2_status != SECSuccess ) ||
+-        ( rc2_bytes_decrypted != FIPS_RC2_DECRYPT_LENGTH ) ||
+-        ( PORT_Memcmp( rc2_computed_plaintext, rc2_ecb_known_plaintext,
+-                       FIPS_RC2_DECRYPT_LENGTH ) != 0 ) ) {
+-        PORT_SetError( SEC_ERROR_LIBRARY_FAILURE );
+-        return( SECFailure );
+-    }
+-
+-
+-    /******************************************************/
+-    /* RC2-CBC Single-Round Known Answer Encryption Test: */
+-    /******************************************************/
+-
+-    rc2_context = RC2_CreateContext( rc2_known_key, FIPS_RC2_KEY_LENGTH,
+-                                     rc2_cbc_known_initialization_vector,
+-                                     NSS_RC2_CBC, FIPS_RC2_KEY_LENGTH );
+-
+-    if( rc2_context == NULL ) {
+-        PORT_SetError( SEC_ERROR_NO_MEMORY );
+-        return( SECFailure );
+-    }
+-
+-    rc2_status = RC2_Encrypt( rc2_context, rc2_computed_ciphertext,
+-                              &rc2_bytes_encrypted, FIPS_RC2_ENCRYPT_LENGTH,
+-                              rc2_cbc_known_plaintext,
+-                              FIPS_RC2_DECRYPT_LENGTH );
+-
+-    RC2_DestroyContext( rc2_context, PR_TRUE );
+-
+-    if( ( rc2_status != SECSuccess ) ||
+-        ( rc2_bytes_encrypted != FIPS_RC2_ENCRYPT_LENGTH ) ||
+-        ( PORT_Memcmp( rc2_computed_ciphertext, rc2_cbc_known_ciphertext,
+-                       FIPS_RC2_ENCRYPT_LENGTH ) != 0 ) ) {
+-        PORT_SetError( SEC_ERROR_LIBRARY_FAILURE );
+-        return( SECFailure );
+-    }
+-
+-
+-    /******************************************************/
+-    /* RC2-CBC Single-Round Known Answer Decryption Test: */
+-    /******************************************************/
+-
+-    rc2_context = RC2_CreateContext( rc2_known_key, FIPS_RC2_KEY_LENGTH,
+-                                     rc2_cbc_known_initialization_vector,
+-                                     NSS_RC2_CBC, FIPS_RC2_KEY_LENGTH );
+-
+-    if( rc2_context == NULL ) {
+-        PORT_SetError( SEC_ERROR_NO_MEMORY );
+-        return( SECFailure );
+-    }
+-
+-    rc2_status = RC2_Decrypt( rc2_context, rc2_computed_plaintext,
+-                              &rc2_bytes_decrypted, FIPS_RC2_DECRYPT_LENGTH,
+-                              rc2_cbc_known_ciphertext,
+-                              FIPS_RC2_ENCRYPT_LENGTH );
+-
+-    RC2_DestroyContext( rc2_context, PR_TRUE );
+-
+-    if( ( rc2_status != SECSuccess ) ||
+-        ( rc2_bytes_decrypted != FIPS_RC2_DECRYPT_LENGTH ) ||
+-        ( PORT_Memcmp( rc2_computed_plaintext, rc2_ecb_known_plaintext,
+-                       FIPS_RC2_DECRYPT_LENGTH ) != 0 ) ) {
+-        PORT_SetError( SEC_ERROR_LIBRARY_FAILURE );
+-        return( SECFailure );
+-    }
+-
+-    return( SECSuccess );
+-}
+-
+-
+-static SECStatus
+-freebl_fips_RC4_PowerUpSelfTest( void )
+-{
+-    /* RC4 Known Key (40-bits). */
+-    static const PRUint8 rc4_known_key[] = { "RSARC" };
+-
+-    /* RC4 Known Plaintext (64-bits). */
+-    static const PRUint8 rc4_known_plaintext[] = { "Netscape" };
+-
+-    /* RC4 Known Ciphertext (64-bits). */
+-    static const PRUint8 rc4_known_ciphertext[] = {
+-				0x29,0x33,0xc7,0x9a,0x9d,0x6c,0x09,0xdd};
+-
+-    /* RC4 variables. */
+-    PRUint8        rc4_computed_ciphertext[FIPS_RC4_ENCRYPT_LENGTH];
+-    PRUint8        rc4_computed_plaintext[FIPS_RC4_DECRYPT_LENGTH];
+-    RC4Context *   rc4_context;
+-    unsigned int   rc4_bytes_encrypted;
+-    unsigned int   rc4_bytes_decrypted;
+-    SECStatus      rc4_status;
+-
+-
+-    /**************************************************/
+-    /* RC4 Single-Round Known Answer Encryption Test: */
+-    /**************************************************/
+-
+-    rc4_context = RC4_CreateContext( rc4_known_key, FIPS_RC4_KEY_LENGTH );
+-
+-    if( rc4_context == NULL ) {
+-        PORT_SetError( SEC_ERROR_NO_MEMORY );
+-        return( SECFailure );
+-    }
+-
+-    rc4_status = RC4_Encrypt( rc4_context, rc4_computed_ciphertext,
+-                              &rc4_bytes_encrypted, FIPS_RC4_ENCRYPT_LENGTH,
+-                              rc4_known_plaintext, FIPS_RC4_DECRYPT_LENGTH );
+-
+-    RC4_DestroyContext( rc4_context, PR_TRUE );
+-
+-    if( ( rc4_status != SECSuccess ) ||
+-        ( rc4_bytes_encrypted != FIPS_RC4_ENCRYPT_LENGTH ) ||
+-        ( PORT_Memcmp( rc4_computed_ciphertext, rc4_known_ciphertext,
+-                       FIPS_RC4_ENCRYPT_LENGTH ) != 0 ) ) {
+-        PORT_SetError( SEC_ERROR_LIBRARY_FAILURE );
+-        return( SECFailure );
+-    }
+-
+-
+-    /**************************************************/
+-    /* RC4 Single-Round Known Answer Decryption Test: */
+-    /**************************************************/
+-
+-    rc4_context = RC4_CreateContext( rc4_known_key, FIPS_RC4_KEY_LENGTH );
+-
+-    if( rc4_context == NULL ) {
+-        PORT_SetError( SEC_ERROR_NO_MEMORY );
+-        return( SECFailure );
+-    }
+-
+-    rc4_status = RC4_Decrypt( rc4_context, rc4_computed_plaintext,
+-                              &rc4_bytes_decrypted, FIPS_RC4_DECRYPT_LENGTH,
+-                              rc4_known_ciphertext, FIPS_RC4_ENCRYPT_LENGTH );
+-
+-    RC4_DestroyContext( rc4_context, PR_TRUE );
+-
+-    if( ( rc4_status != SECSuccess ) ||
+-        ( rc4_bytes_decrypted != FIPS_RC4_DECRYPT_LENGTH ) ||
+-        ( PORT_Memcmp( rc4_computed_plaintext, rc4_known_plaintext,
+-                       FIPS_RC4_DECRYPT_LENGTH ) != 0 ) ) {
+-        PORT_SetError( SEC_ERROR_LIBRARY_FAILURE );
+-        return( SECFailure );
+-    }
+-
+-    return( SECSuccess );
+-}
+-
+-
+-static SECStatus
+-freebl_fips_DES_PowerUpSelfTest( void )
+-{
+-    /* DES Known Key (56-bits). */
+-    static const PRUint8 des_known_key[] = { "ANSI DES" };
+-
+-    /* DES-CBC Known Initialization Vector (64-bits). */
+-    static const PRUint8 des_cbc_known_initialization_vector[] = { "Security" };
+-
+-    /* DES Known Plaintext (64-bits). */
+-    static const PRUint8 des_ecb_known_plaintext[] = { "Netscape" };
+-    static const PRUint8 des_cbc_known_plaintext[] = { "Netscape" };
+-
+-    /* DES Known Ciphertext (64-bits). */
+-    static const PRUint8 des_ecb_known_ciphertext[] = {
+-			       0x26,0x14,0xe9,0xc3,0x28,0x80,0x50,0xb0};
+-    static const PRUint8 des_cbc_known_ciphertext[]  = {
+-			       0x5e,0x95,0x94,0x5d,0x76,0xa2,0xd3,0x7d};
+-
+-    /* DES variables. */
+-    PRUint8        des_computed_ciphertext[FIPS_DES_ENCRYPT_LENGTH];
+-    PRUint8        des_computed_plaintext[FIPS_DES_DECRYPT_LENGTH];
+-    DESContext *   des_context;
+-    unsigned int   des_bytes_encrypted;
+-    unsigned int   des_bytes_decrypted;
+-    SECStatus      des_status;
+-
+-
+-    /******************************************************/
+-    /* DES-ECB Single-Round Known Answer Encryption Test: */
+-    /******************************************************/
+-
+-    des_context = DES_CreateContext( des_known_key, NULL, NSS_DES, PR_TRUE );
+-
+-    if( des_context == NULL ) {
+-        PORT_SetError( SEC_ERROR_NO_MEMORY ); 
+-        return( SECFailure );
+-    }
+-
+-    des_status = DES_Encrypt( des_context, des_computed_ciphertext,
+-                              &des_bytes_encrypted, FIPS_DES_ENCRYPT_LENGTH,
+-                              des_ecb_known_plaintext,
+-                              FIPS_DES_DECRYPT_LENGTH );
+-
+-    DES_DestroyContext( des_context, PR_TRUE );
+-
+-    if( ( des_status != SECSuccess ) ||
+-        ( des_bytes_encrypted != FIPS_DES_ENCRYPT_LENGTH ) ||
+-        ( PORT_Memcmp( des_computed_ciphertext, des_ecb_known_ciphertext,
+-                       FIPS_DES_ENCRYPT_LENGTH ) != 0 ) ) {
+-        PORT_SetError( SEC_ERROR_LIBRARY_FAILURE );
+-        return( SECFailure );
+-    }
+-
+-
+-    /******************************************************/
+-    /* DES-ECB Single-Round Known Answer Decryption Test: */
+-    /******************************************************/
+-
+-    des_context = DES_CreateContext( des_known_key, NULL, NSS_DES, PR_FALSE );
+-
+-    if( des_context == NULL ) {
+-        PORT_SetError( SEC_ERROR_NO_MEMORY ); 
+-        return( SECFailure );
+-    }
+-
+-    des_status = DES_Decrypt( des_context, des_computed_plaintext,
+-                              &des_bytes_decrypted, FIPS_DES_DECRYPT_LENGTH,
+-                              des_ecb_known_ciphertext,
+-                              FIPS_DES_ENCRYPT_LENGTH );
+-
+-    DES_DestroyContext( des_context, PR_TRUE );
+-
+-    if( ( des_status != SECSuccess ) ||
+-        ( des_bytes_decrypted != FIPS_DES_DECRYPT_LENGTH ) ||
+-        ( PORT_Memcmp( des_computed_plaintext, des_ecb_known_plaintext,
+-                       FIPS_DES_DECRYPT_LENGTH ) != 0 ) ) {
+-        PORT_SetError( SEC_ERROR_LIBRARY_FAILURE );
+-        return( SECFailure );
+-    }
+-
+-
+-    /******************************************************/
+-    /* DES-CBC Single-Round Known Answer Encryption Test. */
+-    /******************************************************/
+-
+-    des_context = DES_CreateContext( des_known_key,
+-                                     des_cbc_known_initialization_vector,
+-                                     NSS_DES_CBC, PR_TRUE );
+-
+-    if( des_context == NULL ) {
+-        PORT_SetError( SEC_ERROR_NO_MEMORY ); 
+-        return( SECFailure );
+-    }
+-
+-    des_status = DES_Encrypt( des_context, des_computed_ciphertext,
+-                              &des_bytes_encrypted, FIPS_DES_ENCRYPT_LENGTH,
+-                              des_cbc_known_plaintext,
+-                              FIPS_DES_DECRYPT_LENGTH );
+-
+-    DES_DestroyContext( des_context, PR_TRUE );
+-
+-    if( ( des_status != SECSuccess ) ||
+-        ( des_bytes_encrypted != FIPS_DES_ENCRYPT_LENGTH ) ||
+-        ( PORT_Memcmp( des_computed_ciphertext, des_cbc_known_ciphertext,
+-                       FIPS_DES_ENCRYPT_LENGTH ) != 0 ) ) {
+-        PORT_SetError( SEC_ERROR_LIBRARY_FAILURE );
+-        return( SECFailure );
+-    }
+-
+-
+-    /******************************************************/
+-    /* DES-CBC Single-Round Known Answer Decryption Test. */
+-    /******************************************************/
+-
+-    des_context = DES_CreateContext( des_known_key,
+-                                     des_cbc_known_initialization_vector,
+-                                     NSS_DES_CBC, PR_FALSE );
+-
+-    if( des_context == NULL ) {
+-        PORT_SetError( SEC_ERROR_NO_MEMORY ); 
+-        return( SECFailure );
+-    }
+-
+-    des_status = DES_Decrypt( des_context, des_computed_plaintext,
+-                              &des_bytes_decrypted, FIPS_DES_DECRYPT_LENGTH,
+-                              des_cbc_known_ciphertext,
+-                              FIPS_DES_ENCRYPT_LENGTH );
+-
+-    DES_DestroyContext( des_context, PR_TRUE );
+-
+-    if( ( des_status != SECSuccess ) ||
+-        ( des_bytes_decrypted != FIPS_DES_DECRYPT_LENGTH ) ||
+-        ( PORT_Memcmp( des_computed_plaintext, des_cbc_known_plaintext,
+-                       FIPS_DES_DECRYPT_LENGTH ) != 0 ) ) {
+-        PORT_SetError( SEC_ERROR_LIBRARY_FAILURE );
+-        return( SECFailure );
+-    }
+-
+-    return( SECSuccess );
+-}
+-
+-
+-static SECStatus
+ freebl_fips_DES3_PowerUpSelfTest( void )
+ {
+     /* DES3 Known Key (56-bits). */
+@@ -846,82 +479,6 @@ freebl_fips_AES_PowerUpSelfTest( int aes
+ static const PRUint8 known_hash_message[] = {
+   "The test message for the MD2, MD5, and SHA-1 hashing algorithms." };
+ 
+-
+-static SECStatus
+-freebl_fips_MD2_PowerUpSelfTest( void )
+-{
+-    /* MD2 Known Digest Message (128-bits). */
+-    static const PRUint8 md2_known_digest[]  = {
+-                                   0x41,0x5a,0x12,0xb2,0x3f,0x28,0x97,0x17,
+-                                   0x0c,0x71,0x4e,0xcc,0x40,0xc8,0x1d,0x1b};
+-
+-    /* MD2 variables. */
+-    MD2Context * md2_context;
+-    unsigned int md2_bytes_hashed;
+-    PRUint8      md2_computed_digest[MD2_LENGTH];
+-
+-
+-    /***********************************************/
+-    /* MD2 Single-Round Known Answer Hashing Test. */
+-    /***********************************************/
+-
+-    md2_context = MD2_NewContext();
+-
+-    if( md2_context == NULL ) {
+-        PORT_SetError( SEC_ERROR_NO_MEMORY ); 
+-        return( SECFailure );
+-    }
+-
+-    MD2_Begin( md2_context );
+-
+-    MD2_Update( md2_context, known_hash_message,
+-                FIPS_KNOWN_HASH_MESSAGE_LENGTH );
+-
+-    MD2_End( md2_context, md2_computed_digest, &md2_bytes_hashed, MD2_LENGTH );
+-
+-    MD2_DestroyContext( md2_context , PR_TRUE );
+-    
+-    if( ( md2_bytes_hashed != MD2_LENGTH ) ||
+-        ( PORT_Memcmp( md2_computed_digest, md2_known_digest,
+-                       MD2_LENGTH ) != 0 ) ) {
+-        PORT_SetError( SEC_ERROR_LIBRARY_FAILURE );
+-        return( SECFailure );
+-    }
+-
+-    return( SECSuccess );
+-}
+-
+-
+-static SECStatus
+-freebl_fips_MD5_PowerUpSelfTest( void )
+-{
+-    /* MD5 Known Digest Message (128-bits). */
+-    static const PRUint8 md5_known_digest[]  = {
+-				   0x25,0xc8,0xc0,0x10,0xc5,0x6e,0x68,0x28,
+-				   0x28,0xa4,0xa5,0xd2,0x98,0x9a,0xea,0x2d};
+-
+-    /* MD5 variables. */
+-    PRUint8        md5_computed_digest[MD5_LENGTH];
+-    SECStatus      md5_status;
+-
+-
+-    /***********************************************/
+-    /* MD5 Single-Round Known Answer Hashing Test. */
+-    /***********************************************/
+-
+-    md5_status = MD5_HashBuf( md5_computed_digest, known_hash_message,
+-                              FIPS_KNOWN_HASH_MESSAGE_LENGTH );
+-
+-    if( ( md5_status != SECSuccess ) ||
+-        ( PORT_Memcmp( md5_computed_digest, md5_known_digest,
+-                       MD5_LENGTH ) != 0 ) ) {
+-        PORT_SetError( SEC_ERROR_LIBRARY_FAILURE );
+-        return( SECFailure );
+-    }
+-
+-    return( SECSuccess );
+-}
+-
+ /****************************************************/
+ /* Single Round HMAC SHA-X test                     */
+ /****************************************************/
+@@ -2000,18 +1557,6 @@ freebl_fipsPowerUpSelfTest( unsigned int
+      */
+     if (tests & DO_FREEBL) {
+ 
+-    /* MD2 Power-Up SelfTest(s). */
+-    rv = freebl_fips_MD2_PowerUpSelfTest();
+-
+-    if( rv != SECSuccess )
+-        return rv;
+-
+-    /* MD5 Power-Up SelfTest(s). */
+-    rv = freebl_fips_MD5_PowerUpSelfTest();
+-
+-    if( rv != SECSuccess )
+-        return rv;
+-
+     /* SHA-X Power-Up SelfTest(s). */
+     rv = freebl_fips_SHA_PowerUpSelfTest();
+ 
+@@ -2030,24 +1575,6 @@ freebl_fipsPowerUpSelfTest( unsigned int
+      * standalone */
+     if (tests & DO_REST) {
+ 
+-    /* RC2 Power-Up SelfTest(s). */
+-    rv = freebl_fips_RC2_PowerUpSelfTest();
+-
+-    if( rv != SECSuccess )
+-        return rv;
+-
+-    /* RC4 Power-Up SelfTest(s). */
+-    rv = freebl_fips_RC4_PowerUpSelfTest();
+-
+-    if( rv != SECSuccess )
+-        return rv;
+-
+-    /* DES Power-Up SelfTest(s). */
+-    rv = freebl_fips_DES_PowerUpSelfTest();
+-
+-    if( rv != SECSuccess )
+-        return rv;
+-
+     /* DES3 Power-Up SelfTest(s). */
+     rv = freebl_fips_DES3_PowerUpSelfTest();
+ 

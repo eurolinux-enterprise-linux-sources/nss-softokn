@@ -1,0 +1,25 @@
+diff -up ./mozilla/security/coreconf/location.mk.iquote ./mozilla/security/coreconf/location.mk
+--- ./mozilla/security/coreconf/location.mk.iquote	2013-02-01 09:10:55.124322280 -0800
++++ ./mozilla/security/coreconf/location.mk	2013-02-01 09:18:47.201168455 -0800
+@@ -45,6 +45,10 @@ endif
+ 
+ ifdef NSS_INCLUDE_DIR
+     INCLUDES += -I$(NSS_INCLUDE_DIR)
++    ifdef IN_TREE_FREEBL_HEADERS_FIRST
++        INCLUDES += -iquote $(DIST)/../public/nss
++        INCLUDES += -iquote $(DIST)/../private/nss
++    endif
+ endif
+ 
+ ifndef NSS_LIB_DIR
+diff -up ./mozilla/security/nss/cmd/bltest/Makefile.iquote ./mozilla/security/nss/cmd/bltest/Makefile
+--- ./mozilla/security/nss/cmd/bltest/Makefile.iquote	2013-02-01 09:14:25.092449279 -0800
++++ ./mozilla/security/nss/cmd/bltest/Makefile	2013-02-01 09:21:26.200995421 -0800
+@@ -45,6 +45,7 @@ include $(CORE_DEPTH)/coreconf/rules.mk
+ # (6) Execute "component" rules. (OPTIONAL)                           #
+ #######################################################################
+ 
++INCLUDES += -iquote $(DIST)/../private/nss
+ 
+ 
+ #######################################################################
