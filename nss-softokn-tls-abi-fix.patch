@@ -1,0 +1,26 @@
+diff -up ./nss/lib/softoken/pkcs11c.c.tls_abi_fix ./nss/lib/softoken/pkcs11c.c
+--- ./nss/lib/softoken/pkcs11c.c.tls_abi_fix	2017-03-23 14:44:59.059880273 -0700
++++ ./nss/lib/softoken/pkcs11c.c	2017-03-23 14:45:24.738316707 -0700
+@@ -2672,6 +2672,7 @@ NSC_SignInit(CK_SESSION_HANDLE hSession,
+         case CKM_TLS_PRF_GENERAL:
+             crv = sftk_TLSPRFInit(context, key, key_type, HASH_AlgNULL, 0);
+             break;
++        case CKM_TLS_KDF:
+         case CKM_TLS_MAC: {
+             CK_TLS_MAC_PARAMS *tls12_mac_params;
+             HASH_HashType tlsPrfHash;
+diff -up ./nss/lib/softoken/pkcs11.c.tls_abi_fix ./nss/lib/softoken/pkcs11.c
+--- ./nss/lib/softoken/pkcs11.c.tls_abi_fix	2017-03-23 14:42:21.055194120 -0700
++++ ./nss/lib/softoken/pkcs11.c	2017-03-23 14:44:44.321629780 -0700
+@@ -373,6 +373,11 @@ static const struct mechanismList mechan
+     { CKM_SHA512_HMAC_GENERAL, { 1, 128, CKF_SN_VR }, PR_TRUE },
+     { CKM_TLS_PRF_GENERAL, { 0, 512, CKF_SN_VR }, PR_FALSE },
+     { CKM_TLS_MAC, { 0, 512, CKF_SN_VR }, PR_FALSE },
++    { CKM_TLS_KDF, { 0, 512, CKF_SN_VR }, PR_FALSE }, /* in RHEL 7.3 we had the wrong 
++						       * number for TLS_MAC. keep the old
++						       * number to allow old versions of 
++						       * nss on * RHEL 7 to work with 
++						       * this softoken */
+     { CKM_NSS_TLS_PRF_GENERAL_SHA256,
+       { 0, 512, CKF_SN_VR },
+       PR_FALSE },

@@ -1,0 +1,107 @@
+diff -up ./nss/lib/softoken/fipstokn.c.fix-fips-login ./nss/lib/softoken/fipstokn.c
+--- ./nss/lib/softoken/fipstokn.c.fix-fips-login	2017-02-17 05:20:06.000000000 -0800
++++ ./nss/lib/softoken/fipstokn.c	2017-05-05 15:29:23.934308889 -0700
+@@ -540,7 +540,10 @@ FC_GetTokenInfo(CK_SLOT_ID slotID, CK_TO
+ 
+     crv = NSC_GetTokenInfo(slotID, pInfo);
+     if (crv == CKR_OK) {
+-        if ((pInfo->flags & CKF_LOGIN_REQUIRED) == 0) {
++	/* use the global database to figure out if we are running in 
++         * FIPS 140 Level 1 or Level 2 */
++        if (slotID == FIPS_SLOT_ID &&
++		(pInfo->flags & CKF_LOGIN_REQUIRED) == 0) {
+             isLevel2 = PR_FALSE;
+         }
+     }
+@@ -616,7 +619,8 @@ FC_InitPIN(CK_SESSION_HANDLE hSession,
+      * we need to make sure the pin meets FIPS requirements */
+     if ((ulPinLen == 0) || ((rv = sftk_newPinCheck(pPin, ulPinLen)) == CKR_OK)) {
+         rv = NSC_InitPIN(hSession, pPin, ulPinLen);
+-        if (rv == CKR_OK) {
++        if ((rv == CKR_OK) && 
++		(sftk_SlotIDFromSessionHandle(hSession) == FIPS_SLOT_ID)) {
+             isLevel2 = (ulPinLen > 0) ? PR_TRUE : PR_FALSE;
+         }
+     }
+@@ -644,7 +648,8 @@ FC_SetPIN(CK_SESSION_HANDLE hSession, CK
+     if ((rv = sftk_fipsCheck()) == CKR_OK &&
+         (rv = sftk_newPinCheck(pNewPin, usNewLen)) == CKR_OK) {
+         rv = NSC_SetPIN(hSession, pOldPin, usOldLen, pNewPin, usNewLen);
+-        if (rv == CKR_OK) {
++        if ((rv == CKR_OK) && 
++		(sftk_SlotIDFromSessionHandle(hSession) == FIPS_SLOT_ID)) {
+             /* if we set the password in level1 we now go
+              * to level2. NOTE: we don't allow the user to
+              * go from level2 to level1 */
+@@ -705,12 +710,24 @@ FC_GetSessionInfo(CK_SESSION_HANDLE hSes
+ 
+     rv = NSC_GetSessionInfo(hSession, pInfo);
+     if (rv == CKR_OK) {
+-        if ((isLoggedIn) && (pInfo->state == CKS_RO_PUBLIC_SESSION)) {
+-            pInfo->state = CKS_RO_USER_FUNCTIONS;
+-        }
+-        if ((isLoggedIn) && (pInfo->state == CKS_RW_PUBLIC_SESSION)) {
+-            pInfo->state = CKS_RW_USER_FUNCTIONS;
+-        }
++	/* handle the case where the auxilary slot doesn't require login.
++         * piggy back on the main token's login state */
++	if (isLoggedIn && 
++		((pInfo->state == CKS_RO_PUBLIC_SESSION) ||
++		 (pInfo->state == CKS_RW_PUBLIC_SESSION))) {
++	    CK_RV crv;
++	    CK_TOKEN_INFO tInfo;
++	    crv = NSC_GetTokenInfo(sftk_SlotIDFromSessionHandle(hSession),
++								&tInfo);
++	    /* if the token doesn't login, use our global login state */
++	    if ((crv == CKR_OK) && ((tInfo.flags & CKF_LOGIN_REQUIRED) == 0)) {
++		if (pInfo->state == CKS_RO_PUBLIC_SESSION) {
++            	    pInfo->state = CKS_RO_USER_FUNCTIONS;
++		} else {
++            	   pInfo->state = CKS_RW_USER_FUNCTIONS;
++	        }
++	    }
++	}
+     }
+     return rv;
+ }
+diff -up ./nss/lib/softoken/pkcs11.c.fix-fips-login ./nss/lib/softoken/pkcs11.c
+--- ./nss/lib/softoken/pkcs11.c.fix-fips-login	2017-05-05 15:33:02.247012129 -0700
++++ ./nss/lib/softoken/pkcs11.c	2017-05-05 15:34:43.399727983 -0700
+@@ -2370,17 +2370,22 @@ sftk_SlotFromID(CK_SLOT_ID slotID, PRBoo
+     return slot;
+ }
+ 
+-SFTKSlot *
+-sftk_SlotFromSessionHandle(CK_SESSION_HANDLE handle)
++CK_SLOT_ID
++sftk_SlotIDFromSessionHandle(CK_SESSION_HANDLE handle)
+ {
+     CK_ULONG slotIDIndex = (handle >> 24) & 0x7f;
+     CK_ULONG moduleIndex = (handle >> 31) & 1;
+ 
+     if (slotIDIndex >= nscSlotCount[moduleIndex]) {
+-        return NULL;
++        return (CK_SLOT_ID)-1;
+     }
++    return nscSlotList[moduleIndex][slotIDIndex];
++}
+ 
+-    return sftk_SlotFromID(nscSlotList[moduleIndex][slotIDIndex], PR_FALSE);
++SFTKSlot *
++sftk_SlotFromSessionHandle(CK_SESSION_HANDLE handle)
++{
++    return sftk_SlotFromID(sftk_SlotIDFromSessionHandle(handle), PR_FALSE);
+ }
+ 
+ static CK_RV
+diff -up ./nss/lib/softoken/pkcs11i.h.fix-fips-login ./nss/lib/softoken/pkcs11i.h
+--- ./nss/lib/softoken/pkcs11i.h.fix-fips-login	2017-02-17 05:20:06.000000000 -0800
++++ ./nss/lib/softoken/pkcs11i.h	2017-05-05 15:29:23.934308889 -0700
+@@ -667,6 +667,7 @@ extern CK_RV sftk_handleObject(SFTKObjec
+ 
+ extern SFTKSlot *sftk_SlotFromID(CK_SLOT_ID slotID, PRBool all);
+ extern SFTKSlot *sftk_SlotFromSessionHandle(CK_SESSION_HANDLE handle);
++extern CK_SLOT_ID sftk_SlotIDFromSessionHandle(CK_SESSION_HANDLE handle);
+ extern SFTKSession *sftk_SessionFromHandle(CK_SESSION_HANDLE handle);
+ extern void sftk_FreeSession(SFTKSession *session);
+ extern SFTKSession *sftk_NewSession(CK_SLOT_ID slotID, CK_NOTIFY notify,

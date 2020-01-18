@@ -1,0 +1,94 @@
+diff -up ./nss/lib/softoken/lowpbe.c.pkcs12-sha2 ./nss/lib/softoken/lowpbe.c
+--- ./nss/lib/softoken/lowpbe.c.pkcs12-sha2	2017-02-17 05:20:06.000000000 -0800
++++ ./nss/lib/softoken/lowpbe.c	2017-03-23 10:34:22.320526927 -0700
+@@ -408,7 +408,6 @@ loser:
+     return result;
+ }
+ 
+-#define HMAC_BUFFER 64
+ #define NSSPBE_ROUNDUP(x, y) ((((x) + ((y)-1)) / (y)) * (y))
+ #define NSSPBE_MIN(x, y) ((x) < (y) ? (x) : (y))
+ /*
+@@ -430,6 +429,7 @@ nsspkcs5_PKCS12PBE(const SECHashObject *
+     int iter;
+     unsigned char *iterBuf;
+     void *hash = NULL;
++    unsigned int bufferLength;
+ 
+     arena = PORT_NewArena(DER_DEFAULT_CHUNKSIZE);
+     if (!arena) {
+@@ -439,8 +439,11 @@ nsspkcs5_PKCS12PBE(const SECHashObject *
+     /* how many hash object lengths are needed */
+     c = (bytesNeeded + (hashLength - 1)) / hashLength;
+ 
++    /* 64 if 0 < hashLength <= 32, 128 if 32 < hashLength <= 64 */
++    bufferLength = NSSPBE_ROUNDUP(hashLength * 2, 64);
++
+     /* initialize our buffers */
+-    D.len = HMAC_BUFFER;
++    D.len = bufferLength;
+     /* B and D are the same length, use one alloc go get both */
+     D.data = (unsigned char *)PORT_ArenaZAlloc(arena, D.len * 2);
+     B.len = D.len;
+@@ -452,8 +455,8 @@ nsspkcs5_PKCS12PBE(const SECHashObject *
+         goto loser;
+     }
+ 
+-    SLen = NSSPBE_ROUNDUP(salt->len, HMAC_BUFFER);
+-    PLen = NSSPBE_ROUNDUP(pwitem->len, HMAC_BUFFER);
++    SLen = NSSPBE_ROUNDUP(salt->len, bufferLength);
++    PLen = NSSPBE_ROUNDUP(pwitem->len, bufferLength);
+     I.len = SLen + PLen;
+     I.data = (unsigned char *)PORT_ArenaZAlloc(arena, I.len);
+     if (I.data == NULL) {
+diff -up ./nss/lib/softoken/pkcs11c.c.pkcs12-sha2 ./nss/lib/softoken/pkcs11c.c
+--- ./nss/lib/softoken/pkcs11c.c.pkcs12-sha2	2017-02-17 05:20:06.000000000 -0800
++++ ./nss/lib/softoken/pkcs11c.c	2017-03-23 10:34:22.322526961 -0700
+@@ -3971,6 +3971,22 @@ nsc_SetupHMACKeyGen(CK_MECHANISM_PTR pMe
+             params->hashType = HASH_AlgMD2;
+             params->keyLen = 16;
+             break;
++        case CKM_NSS_PKCS12_PBE_SHA224_HMAC_KEY_GEN:
++            params->hashType = HASH_AlgSHA224;
++            params->keyLen = 28;
++            break;
++        case CKM_NSS_PKCS12_PBE_SHA256_HMAC_KEY_GEN:
++            params->hashType = HASH_AlgSHA256;
++            params->keyLen = 32;
++            break;
++        case CKM_NSS_PKCS12_PBE_SHA384_HMAC_KEY_GEN:
++            params->hashType = HASH_AlgSHA384;
++            params->keyLen = 48;
++            break;
++        case CKM_NSS_PKCS12_PBE_SHA512_HMAC_KEY_GEN:
++            params->hashType = HASH_AlgSHA512;
++            params->keyLen = 64;
++            break;
+         default:
+             PORT_FreeArena(arena, PR_TRUE);
+             return CKR_MECHANISM_INVALID;
+@@ -4189,6 +4205,10 @@ NSC_GenerateKey(CK_SESSION_HANDLE hSessi
+         case CKM_NETSCAPE_PBE_SHA1_HMAC_KEY_GEN:
+         case CKM_NETSCAPE_PBE_MD5_HMAC_KEY_GEN:
+         case CKM_NETSCAPE_PBE_MD2_HMAC_KEY_GEN:
++        case CKM_NSS_PKCS12_PBE_SHA224_HMAC_KEY_GEN:
++        case CKM_NSS_PKCS12_PBE_SHA256_HMAC_KEY_GEN:
++        case CKM_NSS_PKCS12_PBE_SHA384_HMAC_KEY_GEN:
++        case CKM_NSS_PKCS12_PBE_SHA512_HMAC_KEY_GEN:
+             key_gen_type = nsc_pbe;
+             key_type = CKK_GENERIC_SECRET;
+             crv = nsc_SetupHMACKeyGen(pMechanism, &pbe_param);
+diff -up ./nss/lib/softoken/pkcs11.c.pkcs12-sha2 ./nss/lib/softoken/pkcs11.c
+--- ./nss/lib/softoken/pkcs11.c.pkcs12-sha2	2017-02-17 05:20:06.000000000 -0800
++++ ./nss/lib/softoken/pkcs11.c	2017-03-23 10:34:22.321526944 -0700
+@@ -480,6 +480,10 @@ static const struct mechanismList mechan
+     { CKM_NETSCAPE_PBE_SHA1_HMAC_KEY_GEN, { 20, 20, CKF_GENERATE }, PR_TRUE },
+     { CKM_NETSCAPE_PBE_MD5_HMAC_KEY_GEN, { 16, 16, CKF_GENERATE }, PR_TRUE },
+     { CKM_NETSCAPE_PBE_MD2_HMAC_KEY_GEN, { 16, 16, CKF_GENERATE }, PR_TRUE },
++    { CKM_NSS_PKCS12_PBE_SHA224_HMAC_KEY_GEN, { 28, 28, CKF_GENERATE }, PR_TRUE },
++    { CKM_NSS_PKCS12_PBE_SHA256_HMAC_KEY_GEN, { 32, 32, CKF_GENERATE }, PR_TRUE },
++    { CKM_NSS_PKCS12_PBE_SHA384_HMAC_KEY_GEN, { 48, 48, CKF_GENERATE }, PR_TRUE },
++    { CKM_NSS_PKCS12_PBE_SHA512_HMAC_KEY_GEN, { 64, 64, CKF_GENERATE }, PR_TRUE },
+     /* ------------------ AES Key Wrap (also encrypt)  ------------------- */
+     { CKM_NETSCAPE_AES_KEY_WRAP, { 16, 32, CKF_EN_DE_WR_UN }, PR_TRUE },
+     { CKM_NETSCAPE_AES_KEY_WRAP_PAD, { 16, 32, CKF_EN_DE_WR_UN }, PR_TRUE },

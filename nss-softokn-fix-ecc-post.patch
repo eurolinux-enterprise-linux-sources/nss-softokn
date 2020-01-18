@@ -1,0 +1,44 @@
+diff -up ./nss/lib/freebl/fipsfreebl.c.ecc_post ./nss/lib/freebl/fipsfreebl.c
+--- ./nss/lib/freebl/fipsfreebl.c.ecc_post	2017-07-21 18:33:27.946809392 -0700
++++ ./nss/lib/freebl/fipsfreebl.c	2017-07-21 18:34:09.065510689 -0700
+@@ -15,9 +15,7 @@
+ #include "secerr.h"
+ #include "prtypes.h"
+ 
+-#ifdef NSS_ENABLE_ECC
+ #include "ec.h" /* Required for ECDSA */
+-#endif
+ 
+ /*
+  * different platforms have different ways of calling and initial entry point
+@@ -1077,7 +1075,6 @@ rsa_loser:
+     return (SECFailure);
+ }
+ 
+-#ifdef NSS_ENABLE_ECC
+ 
+ static SECStatus
+ freebl_fips_ECDSA_Test(ECParams *ecparams,
+@@ -1275,8 +1272,6 @@ freebl_fips_ECDSA_PowerUpSelfTest()
+     return (SECSuccess);
+ }
+ 
+-#endif /* NSS_ENABLE_ECC */
+-
+ static SECStatus
+ freebl_fips_DSA_PowerUpSelfTest(void)
+ {
+@@ -1559,13 +1554,11 @@ freebl_fipsPowerUpSelfTest(unsigned int
+         if (rv != SECSuccess)
+             return rv;
+ 
+-#ifdef NSS_ENABLE_ECC
+         /* ECDSA Power-Up SelfTest(s). */
+         rv = freebl_fips_ECDSA_PowerUpSelfTest();
+ 
+         if (rv != SECSuccess)
+             return rv;
+-#endif
+     }
+     /* Passed Power-Up SelfTest(s). */
+     return (SECSuccess);
