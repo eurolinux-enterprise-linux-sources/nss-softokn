@@ -1,6 +1,6 @@
-%global nspr_version 4.13.1
+%global nspr_version 4.17.0
 %global nss_name nss
-%global nss_util_version 3.28.3
+%global nss_util_version 3.34.0
 %global nss_util_build -2
 %global unsupported_tools_directory %{_libdir}/nss/unsupported-tools
 %global saved_files_dir %{_libdir}/nss/saved
@@ -31,8 +31,8 @@
 
 Summary:          Network Security Services Softoken Module
 Name:             nss-softokn
-Version:          3.28.3
-Release:          8%{?dist}
+Version:          3.34.0
+Release:          2%{?dist}
 License:          MPLv2.0
 URL:              http://www.mozilla.org/projects/security/pki/nss/
 Group:            System Environment/Libraries
@@ -77,22 +77,11 @@ Source6:	  nss-softokn-dracut.conf
 # Once has been bootstapped the patch may be removed, but it doesn't hurt to keep it.
 Patch10:           iquote.patch
 
-# Patch from Fedora, to fix issues in basicutil/secutil splitting
-# Upstream: https://bugzilla.mozilla.org/show_bug.cgi?id=1300109
-Patch12:           nss-softokn-basicutil-dependency.patch
-
 Patch97:	   nss-softokn-3.16-add_encrypt_derive.patch
 
-# Upstream: https://bugzilla.mozilla.org/show_bug.cgi?id=1334474
-Patch100:          nss-softokn-pss-modulus-bits.patch
-Patch101:          nss-softokn-pkcs12-sha2.patch
 Patch102:          nss-softokn-tls-abi-fix.patch
-Patch103:          nss-softokn-pkcs12-rsa-pss.patch
-Patch104:          nss-softokn-ec-derive-pubkey-check.patch
 # Not upstreamed: https://bugzilla.redhat.com/show_bug.cgi?id=1390154
 Patch105:	   nss-softokn-3.28-fix-fips-login.patch
-# Upstream: https://bugzilla.mozilla.org/show_bug.cgi?id=1345089
-Patch106:	   nss-softokn-fix-drbg.patch
 Patch107:	   nss-softokn-fix-ecc-post.patch
 
 %description
@@ -101,9 +90,10 @@ Network Security Services Softoken Cryptographic Module
 %package freebl
 Summary:          Freebl library for the Network Security Services
 Group:            System Environment/Base
-# Needed because nss-softokn-freebl dlopen()'s nspr
+# Needed because nss-softokn-freebl dlopen()'s nspr and nss-util
 # https://bugzilla.redhat.com/show_bug.cgi?id=1477308
 Requires:         nspr >= %{nspr_version}
+Requires:         nss-util >= %{nss_util_version}%{nss_util_build}
 Conflicts:        nss < 3.12.2.99.3-5
 Conflicts:        prelink < 0.4.3
 Conflicts:        filesystem < 3
@@ -151,18 +141,8 @@ Header and library files for doing development with Network Security Services.
 
 %patch97 -p0 -b .add_encrypt_derive
 
-pushd nss
-%patch12 -p1 -b .basicutil-dependency
-%patch100 -p1 -b .pss-modulus-bits
-popd
-%patch101 -p1 -b .pkcs12-sha2
 %patch102 -p1 -b .tls-abi-fix
-%patch103 -p1 -b .pkcs12-rsa-pss
-%patch104 -p1 -b .ec-derive-pubkey-check
 %patch105 -p1 -b .fix-fips-login
-pushd nss
-%patch106 -p1 -b .fix-drbg
-popd
 %patch107 -p1 -b .ecc_post
 
 %build
@@ -489,12 +469,35 @@ done
 %{_includedir}/nss3/shsign.h
 
 %changelog
-* Thu Aug  3 2017 Bob Relyea <rrelyea@redhat.com> - 3.28.3-8
-- fix fips post so that they actually run at startup
+* Tue Jan 16 2018 Daiki Ueno <dueno@redhat.com> - 3.34.0-2
+- Rebuild to utilize ECC slotFlag added in nss-util
 
-* Wed Aug  2 2017 Daiki Ueno <dueno@redhat.com> - 3.28.3-7
+* Thu Nov 23 2017 Daiki Ueno <dueno@redhat.com> - 3.34.0-1
+- Update to NSS 3.34.0
+
+* Tue Nov 14 2017 Daiki Ueno <dueno@redhat.com> - 3.34.0-0.3.beta1
+- let nss-softokn-freebl depend on recent version of nss-util,
+  reported by Bob Peterson
+
+* Fri Nov  3 2017 Daiki Ueno <dueno@redhat.com> - 3.34.0-0.2.beta1
+- Fix indentation of nss-softokn-3.16-add_encrypt_derive.patch
+
+* Mon Oct 30 2017 Daiki Ueno <dueno@redhat.com> - 3.34.0-0.1.beta1
+- Update to NSS 3.34.BETA1
+
+* Mon Oct  9 2017 Daiki Ueno <dueno@redhat.com> - 3.33.0-1
+- Update to NSS 3.33.0
+- Remove upstreamed patches: nss-softokn-basicutil-dependency.patch,
+  nss-softokn-pss-modulus-bits.patch, nss-softokn-pkcs12-sha2.patch,
+  nss-softokn-pkcs12-rsa-pss.patch,
+  nss-softokn-ec-derive-pubkey-check.patch, and nss-softokn-fix-drbg.patch
+
+* Wed Aug  2 2017 Daiki Ueno <dueno@redhat.com> - 3.28.3-8
 - let nss-softokn-freebl depend on recent version of nspr (rhbz#1477308),
   patch by Kyle Walker
+
+* Fri Jul 21 2017 Bob Relyea <rrelyea@redhat.com> - 3.28.3-7
+- fix fips post so that they actually run at startup
 
 * Fri May 26 2017 Daiki Ueno <dueno@redhat.com> - 3.28.3-6
 - restore nss-softokn-3.16-add_encrypt_derive.patch

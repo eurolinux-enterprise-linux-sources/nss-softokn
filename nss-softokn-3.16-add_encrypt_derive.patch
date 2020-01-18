@@ -1,7 +1,7 @@
-diff -up ./nss/lib/softoken/pkcs11.c.add_encrypt_derive ./nss/lib/softoken/pkcs11.c
---- ./nss/lib/softoken/pkcs11.c.add_encrypt_derive	2017-02-17 14:20:06.000000000 +0100
-+++ ./nss/lib/softoken/pkcs11.c	2017-05-26 14:10:26.633700334 +0200
-@@ -423,11 +423,22 @@ static const struct mechanismList mechan
+diff -up nss/lib/softoken/pkcs11.c.add_encrypt_derive nss/lib/softoken/pkcs11.c
+--- nss/lib/softoken/pkcs11.c.add_encrypt_derive	2017-10-30 10:38:09.000000000 +0100
++++ nss/lib/softoken/pkcs11.c	2017-11-03 14:15:03.648179954 +0100
+@@ -421,11 +421,22 @@ static const struct mechanismList mechan
  #endif
      /* --------------------- Secret Key Operations ------------------------ */
      { CKM_GENERIC_SECRET_KEY_GEN, { 1, 32, CKF_GENERATE }, PR_TRUE },
@@ -28,11 +28,11 @@ diff -up ./nss/lib/softoken/pkcs11.c.add_encrypt_derive ./nss/lib/softoken/pkcs1
      /* ---------------------- SSL Key Derivations ------------------------- */
      { CKM_SSL3_PRE_MASTER_KEY_GEN, { 48, 48, CKF_GENERATE }, PR_FALSE },
      { CKM_SSL3_MASTER_KEY_DERIVE, { 48, 48, CKF_DERIVE }, PR_FALSE },
-diff -up ./nss/lib/softoken/pkcs11c.c.add_encrypt_derive ./nss/lib/softoken/pkcs11c.c
---- ./nss/lib/softoken/pkcs11c.c.add_encrypt_derive	2017-02-17 14:20:06.000000000 +0100
-+++ ./nss/lib/softoken/pkcs11c.c	2017-05-26 14:09:34.990901108 +0200
-@@ -6213,6 +6213,44 @@ sftk_ANSI_X9_63_kdf(CK_BYTE **key, CK_UL
- #endif /* NSS_DISABLE_ECC */
+diff -up nss/lib/softoken/pkcs11c.c.add_encrypt_derive nss/lib/softoken/pkcs11c.c
+--- nss/lib/softoken/pkcs11c.c.add_encrypt_derive	2017-10-30 10:38:09.000000000 +0100
++++ nss/lib/softoken/pkcs11c.c	2017-11-03 14:19:35.665109757 +0100
+@@ -6242,6 +6242,44 @@ sftk_ANSI_X9_63_kdf(CK_BYTE **key, CK_UL
+ }
  
  /*
 + *  Handle The derive from a block encryption cipher
@@ -76,7 +76,7 @@ diff -up ./nss/lib/softoken/pkcs11c.c.add_encrypt_derive ./nss/lib/softoken/pkcs
   * SSL Key generation given pre master secret
   */
  #define NUM_MIXERS 9
-@@ -6257,6 +6295,9 @@ NSC_DeriveKey(CK_SESSION_HANDLE hSession
+@@ -6286,6 +6324,9 @@ NSC_DeriveKey(CK_SESSION_HANDLE hSession
      CK_KEY_TYPE keyType = CKK_GENERIC_SECRET;
      CK_OBJECT_CLASS classType = CKO_SECRET_KEY;
      CK_KEY_DERIVATION_STRING_DATA *stringPtr;
@@ -86,7 +86,7 @@ diff -up ./nss/lib/softoken/pkcs11c.c.add_encrypt_derive ./nss/lib/softoken/pkcs
      CK_MECHANISM_TYPE mechanism = pMechanism->mechanism;
      PRBool isTLS = PR_FALSE;
      PRBool isDH = PR_FALSE;
-@@ -6266,6 +6307,7 @@ NSC_DeriveKey(CK_SESSION_HANDLE hSession
+@@ -6295,6 +6336,7 @@ NSC_DeriveKey(CK_SESSION_HANDLE hSession
      unsigned int outLen;
      unsigned char sha_out[SHA1_LENGTH];
      unsigned char key_block[NUM_MIXERS * SFTK_MAX_MAC_LENGTH];
@@ -94,7 +94,7 @@ diff -up ./nss/lib/softoken/pkcs11c.c.add_encrypt_derive ./nss/lib/softoken/pkcs
      PRBool isFIPS;
      HASH_HashType hashType;
      PRBool extractValue = PR_TRUE;
-@@ -6935,6 +6977,168 @@ NSC_DeriveKey(CK_SESSION_HANDLE hSession
+@@ -6899,6 +6941,168 @@ NSC_DeriveKey(CK_SESSION_HANDLE hSession
              break;
          }
  
@@ -260,6 +260,6 @@ diff -up ./nss/lib/softoken/pkcs11c.c.add_encrypt_derive ./nss/lib/softoken/pkcs
 +            SEED_DestroyContext(cipherInfo, PR_TRUE);
 +            break;
 +
-         case CKM_CONCATENATE_BASE_AND_DATA:
-             crv = sftk_DeriveSensitiveCheck(sourceKey, key);
-             if (crv != CKR_OK)
+         case CKM_CONCATENATE_BASE_AND_KEY: {
+             SFTKObject *newKey;
+ 
