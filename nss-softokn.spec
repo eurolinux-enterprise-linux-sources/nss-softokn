@@ -1,7 +1,7 @@
-%global nspr_version 4.17.0
+%global nspr_version 4.19.0
 %global nss_name nss
-%global nss_util_version 3.34.0
-%global nss_util_build -2
+%global nss_util_version 3.36.0
+%global nss_util_build -1
 %global unsupported_tools_directory %{_libdir}/nss/unsupported-tools
 %global saved_files_dir %{_libdir}/nss/saved
 %global prelink_conf_dir %{_sysconfdir}/prelink.conf.d/
@@ -31,8 +31,8 @@
 
 Summary:          Network Security Services Softoken Module
 Name:             nss-softokn
-Version:          3.34.0
-Release:          2%{?dist}
+Version:          3.36.0
+Release:          5%{?dist}
 License:          MPLv2.0
 URL:              http://www.mozilla.org/projects/security/pki/nss/
 Group:            System Environment/Libraries
@@ -77,12 +77,23 @@ Source6:	  nss-softokn-dracut.conf
 # Once has been bootstapped the patch may be removed, but it doesn't hurt to keep it.
 Patch10:           iquote.patch
 
+# Upstream: https://bugzilla.mozilla.org/show_bug.cgi?id=1236720
+# Although the greater part of the patch has been upstreamed, we still
+# need a downstream patch to keep the single DES mechanisms we had
+# provided in a downstream patch for compatibility reasons.
 Patch97:	   nss-softokn-3.16-add_encrypt_derive.patch
 
 Patch102:          nss-softokn-tls-abi-fix.patch
-# Not upstreamed: https://bugzilla.redhat.com/show_bug.cgi?id=1390154
-Patch105:	   nss-softokn-3.28-fix-fips-login.patch
-Patch107:	   nss-softokn-fix-ecc-post.patch
+
+# Not upstreamed: https://bugzilla.redhat.com/show_bug.cgi?id=1548394
+Patch103:	   nss-softokn-add-kas-tests.patch
+
+# To revert the upstream change in the default behavior in:
+# https://bugzilla.mozilla.org/show_bug.cgi?id=1382736
+Patch104:	   nss-softokn-fs-probe.patch
+
+# Not upstreamed: https://bugzilla.redhat.com/show_bug.cgi?id=1555108
+Patch105:	   nss-softokn-aes-zeroize.patch
 
 %description
 Network Security Services Softoken Cryptographic Module
@@ -139,11 +150,14 @@ Header and library files for doing development with Network Security Services.
 # activate if needed when doing a major update with new apis
 #%patch10 -p0 -b .iquote
 
-%patch97 -p0 -b .add_encrypt_derive
+pushd nss
+%patch97 -p1 -b .add_encrypt_derive
+%patch103 -p1 -b .add-kas-tests
+%patch104 -p1 -R -b .fs-probe
+%patch105 -p1 -b .aes-zeroize
+popd
 
 %patch102 -p1 -b .tls-abi-fix
-%patch105 -p1 -b .fix-fips-login
-%patch107 -p1 -b .ecc_post
 
 %build
 
@@ -469,6 +483,34 @@ done
 %{_includedir}/nss3/shsign.h
 
 %changelog
+* Mon Mar 19 2018 Daiki Ueno <dueno@redhat.com> - 3.36.0-5
+- Use correct tarball of NSS 3.36.0 release
+
+* Thu Mar 15 2018 Bob Relyea <rrelyea@redhat.com> - 3.36.0-4
+- Clear AES key information after use
+
+* Wed Mar  7 2018 Daiki Ueno <dueno@redhat.com> - 3.36.0-3
+- Revert the default behavior change in filesystem probes
+
+* Wed Mar  7 2018 Bob Relyea <rrelyea@redhat.com> - 3.36.0-2
+- Add KAS tests to fipstest
+
+* Mon Mar  5 2018 Daiki Ueno <dueno@redhat.com> - 3.36.0-1
+- Update to NSS 3.36.0
+
+* Mon Mar  5 2018 Daiki Ueno <dueno@redhat.com> - 3.36.0-0.3.beta
+- Apply upstream patch likely to be part of the official release
+
+* Thu Mar  1 2018 Daiki Ueno <dueno@redhat.com> - 3.36.0-0.2.beta
+- Restore nss-softokn-3.16-add_encrypt_derive.patch to add back
+  support for single DES mechanisms
+
+* Thu Mar  1 2018 Daiki Ueno <dueno@redhat.com> - 3.36.0-0.1.beta
+- Update to NSS 3.36 BETA
+- Remove upstreamed nss-softokn-3.16-add_encrypt_derive.patch
+- Remove upstreamed nss-softokn-3.28-fix-fips-login.patch
+- Remove upstreamed nss-softokn-fix-ecc-post.patch
+
 * Tue Jan 16 2018 Daiki Ueno <dueno@redhat.com> - 3.34.0-2
 - Rebuild to utilize ECC slotFlag added in nss-util
 

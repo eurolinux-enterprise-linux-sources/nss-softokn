@@ -1,0 +1,51 @@
+diff --git a/lib/freebl/intel-gcm-wrap.c b/lib/freebl/intel-gcm-wrap.c
+--- a/lib/freebl/intel-gcm-wrap.c
++++ b/lib/freebl/intel-gcm-wrap.c
+@@ -138,16 +138,17 @@ intel_AES_GCM_CreateContext(void *contex
+ loser:
+     PORT_Free(gcm);
+     return NULL;
+ }
+ 
+ void
+ intel_AES_GCM_DestroyContext(intel_AES_GCMContext *gcm, PRBool freeit)
+ {
++    PORT_Memset(gcm, 0, sizeof(intel_AES_GCMContext));
+     if (freeit) {
+         PORT_Free(gcm);
+     }
+ }
+ 
+ SECStatus
+ intel_AES_GCM_EncryptUpdate(intel_AES_GCMContext *gcm,
+                             unsigned char *outbuf,
+diff --git a/lib/freebl/rijndael.c b/lib/freebl/rijndael.c
+--- a/lib/freebl/rijndael.c
++++ b/lib/freebl/rijndael.c
+@@ -1027,23 +1027,25 @@ AES_CreateContext(const unsigned char *k
+  * AES_DestroyContext
+  *
+  * Zero an AES cipher context.  If freeit is true, also free the pointer
+  * to the context.
+  */
+ void
+ AES_DestroyContext(AESContext *cx, PRBool freeit)
+ {
++    void *mem = cx->mem;
+     if (cx->worker_cx && cx->destroy) {
+         (*cx->destroy)(cx->worker_cx, PR_TRUE);
+         cx->worker_cx = NULL;
+         cx->destroy = NULL;
+     }
++    PORT_Memset(cx, 0, sizeof(AESContext));
+     if (freeit) {
+-        PORT_Free(cx->mem);
++        PORT_Free(mem);
+     }
+ }
+ 
+ /*
+  * AES_Encrypt
+  *
+  * Encrypt an arbitrary-length buffer.  The output buffer must already be
+  * allocated to at least inputLen.
