@@ -1,0 +1,21 @@
+# HG changeset patch
+# User Craig Disselkoen <cdisselk@cs.ucsd.edu>
+# Date 1574189697 25200
+#      Tue Nov 19 11:54:57 2019 -0700
+# Branch NSS_3_44_BRANCH
+# Node ID 60bca7c6dc6dc44579b9b3e0fb62ca3b82d92eec
+# Parent  64e55c9f658e2a75f0835d00a8a1cdc2f25c74d6
+Bug 1586176 - EncryptUpdate should use maxout not block size. r=franziskus
+
+diff --git a/lib/softoken/pkcs11c.c b/lib/softoken/pkcs11c.c
+--- a/lib/softoken/pkcs11c.c
++++ b/lib/softoken/pkcs11c.c
+@@ -1321,7 +1321,7 @@ NSC_EncryptUpdate(CK_SESSION_HANDLE hSes
+             }
+             /* encrypt the current padded data */
+             rv = (*context->update)(context->cipherInfo, pEncryptedPart,
+-                                    &padoutlen, context->blockSize, context->padBuf,
++                                    &padoutlen, maxout, context->padBuf,
+                                     context->blockSize);
+             if (rv != SECSuccess) {
+                 return sftk_MapCryptError(PORT_GetError());
