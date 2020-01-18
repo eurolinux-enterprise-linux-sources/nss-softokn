@@ -1,0 +1,4581 @@
+diff --git a/cmd/fipstest/README b/cmd/fipstest/README
+new file mode 100644
+--- /dev/null
++++ b/cmd/fipstest/README
+@@ -0,0 +1,1 @@
++The scripts have been moved to tests/fips/cavs_scripts
+diff --git a/cmd/fipstest/aes.sh b/cmd/fipstest/aes.sh
+deleted file mode 100644
+--- a/cmd/fipstest/aes.sh
++++ /dev/null
+@@ -1,112 +0,0 @@
+-#!/bin/sh
+-#
+-# This Source Code Form is subject to the terms of the Mozilla Public
+-# License, v. 2.0. If a copy of the MPL was not distributed with this
+-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+-#
+-#
+-# A Bourne shell script for running the NIST AES Algorithm Validation Suite
+-#
+-# Before you run the script, set your PATH, LD_LIBRARY_PATH, ... environment
+-# variables appropriately so that the fipstest command and the NSPR and NSS
+-# shared libraries/DLLs are on the search path.  Then run this script in the
+-# directory where the REQUEST (.req) files reside.  The script generates the
+-# RESPONSE (.rsp) files in the same directory.
+-
+-BASEDIR=${1-.}
+-TESTDIR=${BASEDIR}/AES
+-COMMAND=${2-run}
+-REQDIR=${TESTDIR}/req
+-RSPDIR=${TESTDIR}/resp
+-
+-cbc_kat_requests="
+-CBCGFSbox128.req
+-CBCGFSbox192.req
+-CBCGFSbox256.req
+-CBCKeySbox128.req
+-CBCKeySbox192.req
+-CBCKeySbox256.req
+-CBCVarKey128.req
+-CBCVarKey192.req
+-CBCVarKey256.req
+-CBCVarTxt128.req
+-CBCVarTxt192.req
+-CBCVarTxt256.req
+-"
+-
+-cbc_mct_requests="
+-CBCMCT128.req
+-CBCMCT192.req
+-CBCMCT256.req
+-"
+-
+-cbc_mmt_requests="
+-CBCMMT128.req
+-CBCMMT192.req
+-CBCMMT256.req
+-"
+-
+-ecb_kat_requests="
+-ECBGFSbox128.req
+-ECBGFSbox192.req
+-ECBGFSbox256.req
+-ECBKeySbox128.req
+-ECBKeySbox192.req
+-ECBKeySbox256.req
+-ECBVarKey128.req
+-ECBVarKey192.req
+-ECBVarKey256.req
+-ECBVarTxt128.req
+-ECBVarTxt192.req
+-ECBVarTxt256.req
+-"
+-
+-ecb_mct_requests="
+-ECBMCT128.req
+-ECBMCT192.req
+-ECBMCT256.req
+-"
+-
+-ecb_mmt_requests="
+-ECBMMT128.req
+-ECBMMT192.req
+-ECBMMT256.req
+-"
+-
+-if [ ${COMMAND} = "verify" ]; then
+-    for request in $cbc_kat_requests $cbc_mct_requests $cbc_mmt_requests $ecb_kat_requests $ecb_mct_requests $ecb_mmt_requests; do
+-	sh ./validate1.sh ${TESTDIR} $request
+-    done
+-    exit 0
+-fi
+-
+-for request in $cbc_kat_requests; do
+-    response=`echo $request | sed -e "s/req/rsp/"`
+-    echo $request $response
+-    fipstest aes kat cbc ${REQDIR}/$request > ${RSPDIR}/$response
+-done
+-for request in $cbc_mct_requests; do
+-    response=`echo $request | sed -e "s/req/rsp/"`
+-    echo $request $response
+-    fipstest aes mct cbc ${REQDIR}/$request > ${RSPDIR}/$response
+-done
+-for request in $cbc_mmt_requests; do
+-    response=`echo $request | sed -e "s/req/rsp/"`
+-    echo $request $response
+-    fipstest aes mmt cbc ${REQDIR}/$request > ${RSPDIR}/$response
+-done
+-for request in $ecb_kat_requests; do
+-    response=`echo $request | sed -e "s/req/rsp/"`
+-    echo $request $response
+-    fipstest aes kat ecb ${REQDIR}/$request > ${RSPDIR}/$response
+-done
+-for request in $ecb_mct_requests; do
+-    response=`echo $request | sed -e "s/req/rsp/"`
+-    echo $request $response
+-    fipstest aes mct ecb ${REQDIR}/$request > ${RSPDIR}/$response
+-done
+-for request in $ecb_mmt_requests; do
+-    response=`echo $request | sed -e "s/req/rsp/"`
+-    echo $request $response
+-    fipstest aes mmt ecb ${REQDIR}/$request > ${RSPDIR}/$response
+-done
+diff --git a/cmd/fipstest/aesgcm.sh b/cmd/fipstest/aesgcm.sh
+deleted file mode 100644
+--- a/cmd/fipstest/aesgcm.sh
++++ /dev/null
+@@ -1,67 +0,0 @@
+-#!/bin/sh
+-# 
+-# This Source Code Form is subject to the terms of the Mozilla Public
+-# License, v. 2.0. If a copy of the MPL was not distributed with this
+-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+-#
+-# A Bourne shell script for running the NIST AES Algorithm Validation Suite
+-#
+-# Before you run the script, set your PATH, LD_LIBRARY_PATH, ... environment
+-# variables appropriately so that the fipstest command and the NSPR and NSS
+-# shared libraries/DLLs are on the search path.  Then run this script in the
+-# directory where the REQUEST (.req) files reside.  The script generates the
+-# RESPONSE (.rsp) files in the same directory.
+-
+-BASEDIR=${1-.}
+-TESTDIR=${BASEDIR}/AES_GCM
+-COMMAND=${2-run}
+-REQDIR=${TESTDIR}/req
+-RSPDIR=${TESTDIR}/resp
+-
+-gcm_decrypt_requests="
+-gcmDecrypt128.req
+-gcmDecrypt192.req
+-gcmDecrypt256.req
+-"
+-
+-gcm_encrypt_extiv_requests="
+-gcmEncryptExtIV128.req
+-gcmEncryptExtIV192.req
+-gcmEncryptExtIV256.req
+-"
+-gcm_encrypt_intiv_requests="
+-"
+-
+-#gcm_encrypt_intiv_requests="
+-#gcmEncryptIntIV128.req
+-#gcmEncryptIntIV192.req
+-#gcmEncryptIntIV256.req
+-#"
+-
+-if [ ${COMMAND} = "verify" ]; then
+-    for request in $gcm_decrypt_requests $gcm_encrypt_extiv_requests; do
+-	sh ./validate1.sh ${TESTDIR} $request ' ' '-e /Reason:/d'
+-    done
+-    for request in $gcm_encrypt_intiv_requests; do
+-	name=`basename $request .req`
+-    	echo ">>>>>  $name"
+-        fipstest aes gcm decrypt ${RSPDIR}/$name.rsp | grep FAIL
+-    done
+-    exit 0
+-fi
+-
+-for request in $gcm_decrypt_requests; do
+-    response=`echo $request | sed -e "s/req/rsp/"`
+-    echo $request $response
+-    fipstest aes gcm decrypt ${REQDIR}/$request > ${RSPDIR}/$response
+-done
+-for request in $gcm_encrypt_intiv_requests; do
+-    response=`echo $request | sed -e "s/req/rsp/"`
+-    echo $request $response
+-    fipstest aes gcm encrypt_intiv ${REQDIR}/$request > ${RSPDIR}/$response
+-done
+-for request in $gcm_encrypt_extiv_requests; do
+-    response=`echo $request | sed -e "s/req/rsp/"`
+-    echo $request $response
+-    fipstest aes gcm encrypt_extiv ${REQDIR}/$request > ${RSPDIR}/$response
+-done
+diff --git a/cmd/fipstest/dsa.sh b/cmd/fipstest/dsa.sh
+deleted file mode 100755
+--- a/cmd/fipstest/dsa.sh
++++ /dev/null
+@@ -1,71 +0,0 @@
+-#!/bin/sh
+-# 
+-# This Source Code Form is subject to the terms of the Mozilla Public
+-# License, v. 2.0. If a copy of the MPL was not distributed with this
+-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+-#
+-# A Bourne shell script for running the NIST DSA Validation System
+-#
+-# Before you run the script, set your PATH, LD_LIBRARY_PATH, ... environment
+-# variables appropriately so that the fipstest command and the NSPR and NSS
+-# shared libraries/DLLs are on the search path.  Then run this script in the
+-# directory where the REQUEST (.req) files reside.  The script generates the
+-# RESPONSE (.rsp) files in the same directory.
+-BASEDIR=${1-.}
+-TESTDIR=${BASEDIR}/DSA2
+-COMMAND=${2-run}
+-REQDIR=${TESTDIR}/req
+-RSPDIR=${TESTDIR}/resp
+-
+-
+-#
+-# several of the DSA tests do use known answer tests to verify the result.
+-# in those cases, feed generated tests back into the fipstest tool and
+-# see if we can verify those value. NOTE: th PQGVer and SigVer tests verify
+-# the dsa pqgver and dsa sigver functions, so we know they can detect errors
+-# in those PQGGen and SigGen. Only the KeyPair verify is potentially circular.
+-#
+-if [ ${COMMAND} = "verify" ]; then
+-# verify generated keys
+-    name=KeyPair
+-    echo ">>>>>  $name"
+-    fipstest dsa keyver ${RSPDIR}/$name.rsp | grep ^Result.=.F
+-# verify generated pqg values
+-    name=PQGGen
+-    echo ">>>>>  $name"
+-    fipstest dsa pqgver ${RSPDIR}/$name.rsp | grep ^Result.=.F
+-# verify PQGVer with known answer
+-#    sh ./validate1.sh ${TESTDIR} PQGVer.req ' ' '-e /^Result.=.F/s;.(.*);; -e /^Result.=.P/s;.(.*);;'
+-# verify signatures
+-    name=SigGen
+-    echo ">>>>>  $name"
+-    fipstest dsa sigver ${RSPDIR}/$name.rsp | grep ^Result.=.F
+-# verify SigVer with known answer
+-    sh ./validate1.sh ${TESTDIR} SigVer.req ' ' '-e /^X.=/d -e /^Result.=.F/s;.(.*);;'
+-    exit 0
+-fi
+-
+-request=KeyPair.req
+-response=`echo $request | sed -e "s/req/rsp/"`
+-echo $request $response
+-fipstest dsa keypair ${REQDIR}/$request > ${RSPDIR}/$response
+-
+-request=PQGGen.req
+-response=`echo $request | sed -e "s/req/rsp/"`
+-echo $request $response
+-fipstest dsa pqggen ${REQDIR}/$request > ${RSPDIR}/$response
+-
+-request=PQGVer1863.req
+-response=`echo $request | sed -e "s/req/rsp/"`
+-echo $request $response
+-fipstest dsa pqgver ${REQDIR}/$request > ${RSPDIR}/$response
+-
+-request=SigGen.req
+-response=`echo $request | sed -e "s/req/rsp/"`
+-echo $request $response
+-fipstest dsa siggen ${REQDIR}/$request > ${RSPDIR}/$response
+-
+-request=SigVer.req
+-response=`echo $request | sed -e "s/req/rsp/"`
+-echo $request $response
+-fipstest dsa sigver ${REQDIR}/$request > ${RSPDIR}/$response
+diff --git a/cmd/fipstest/ecdsa.sh b/cmd/fipstest/ecdsa.sh
+deleted file mode 100644
+--- a/cmd/fipstest/ecdsa.sh
++++ /dev/null
+@@ -1,60 +0,0 @@
+-#!/bin/sh
+-# 
+-# This Source Code Form is subject to the terms of the Mozilla Public
+-# License, v. 2.0. If a copy of the MPL was not distributed with this
+-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+-#
+-# A Bourne shell script for running the NIST ECDSA Validation System
+-#
+-# Before you run the script, set your PATH, LD_LIBRARY_PATH, ... environment
+-# variables appropriately so that the fipstest command and the NSPR and NSS
+-# shared libraries/DLLs are on the search path.  Then run this script in the
+-# directory where the REQUEST (.req) files reside.  The script generates the
+-# RESPONSE (.rsp) files in the same directory.
+-BASEDIR=${1-.}
+-TESTDIR=${BASEDIR}/ECDSA2
+-COMMAND=${2-run}
+-REQDIR=${TESTDIR}/req
+-RSPDIR=${TESTDIR}/resp
+-
+-#
+-# several of the ECDSA tests do not use known answer tests to verify the result.
+-# In those cases, feed generated tests back into the fipstest tool and
+-# see if we can verify those value. NOTE:  PQGVer and SigVer tests verify
+-# the dsa pqgver and dsa sigver functions, so we know they can detect errors
+-# in those PQGGen and SigGen. Only the KeyPair verify is potentially circular.
+-#
+-if [ ${COMMAND} = "verify" ]; then
+-# verify generated keys
+-    name=KeyPair
+-    echo ">>>>>  $name"
+-    fipstest ecdsa keyver ${RSPDIR}/$name.rsp | grep ^Result.=.F
+-    sh ./validate1.sh ${TESTDIR} PKV.req ' ' '-e /^X.=/d -e /^Result.=.F/s;.(.*);; -e /^Result.=.P/s;.(.*);;'
+-# verify signatures
+-    name=SigGen
+-    echo ">>>>>  $name"
+-    fipstest ecdsa sigver ${RSPDIR}/$name.rsp | grep ^Result.=.F
+-# verify SigVer with known answer
+-    sh ./validate1.sh ${TESTDIR} SigVer.req ' ' '-e /^X.=/d -e /^Result.=.F/s;.(.*);; -e /^Result.=.P/s;.(.*);;'
+-    exit 0
+-fi
+-
+-request=KeyPair.req
+-response=`echo $request | sed -e "s/req/rsp/"`
+-echo $request $response
+-fipstest ecdsa keypair ${REQDIR}/$request > ${RSPDIR}/$response
+-
+-request=PKV.req
+-response=`echo $request | sed -e "s/req/rsp/"`
+-echo $request $response
+-fipstest ecdsa pkv ${REQDIR}/$request > ${RSPDIR}/$response
+-
+-request=SigGen.req
+-response=`echo $request | sed -e "s/req/rsp/"`
+-echo $request $response
+-fipstest ecdsa siggen ${REQDIR}/$request > ${RSPDIR}/$response
+-
+-request=SigVer.req
+-response=`echo $request | sed -e "s/req/rsp/"`
+-echo $request $response
+-fipstest ecdsa sigver ${REQDIR}/$request > ${RSPDIR}/$response
+diff --git a/cmd/fipstest/fipstest.c b/cmd/fipstest/fipstest.c
+--- a/cmd/fipstest/fipstest.c
++++ b/cmd/fipstest/fipstest.c
+@@ -29,16 +29,21 @@
+ #undef CK_PKCS11_FUNCTION_INFO
+ #undef CK_NEED_ARG_LIST
+ #undef __PASTE
+ #define SSL3_RANDOM_LENGTH 32
+ 
+ #if 0
+ #include "../../lib/freebl/mpi/mpi.h"
+ #endif
++#define MATCH_OPENSSL 1
++/*#define MATCH_NIST 1 */
++#ifdef MATCH_NIST
++#define VERBOSE_REASON 1
++#endif
+ 
+ extern SECStatus
+ EC_DecodeParams(const SECItem *encodedParams, ECParams **ecparams);
+ extern SECStatus
+ EC_CopyParams(PLArenaPool *arena, ECParams *dstParams,
+               const ECParams *srcParams);
+ 
+ #define ENCRYPT 1
+@@ -3164,16 +3169,20 @@ ecdh_functional(char *reqfn, PRBool resp
+                 fprintf(stderr, "generate key had invalid public value len\n");
+                 goto loser;
+             }
+             uit_len = (uit_len - 1) / 2;
+             if (ecpriv->publicValue.data[0] != EC_POINT_FORM_UNCOMPRESSED) {
+                 fprintf(stderr, "generate key was compressed\n");
+                 goto loser;
+             }
++            fputs("deIUT = ", ecdhresp);
++            to_hex_str(buf, ecpriv->privateValue.data, ecpriv->privateValue.len);
++            fputs(buf, ecdhresp);
++            fputc('\n', ecdhresp);
+             fputs("QeIUTx = ", ecdhresp);
+             to_hex_str(buf, &ecpriv->publicValue.data[1], uit_len);
+             fputs(buf, ecdhresp);
+             fputc('\n', ecdhresp);
+             fputs("QeIUTy = ", ecdhresp);
+             to_hex_str(buf, &ecpriv->publicValue.data[1 + uit_len], uit_len);
+             fputs(buf, ecdhresp);
+             fputc('\n', ecdhresp);
+@@ -3210,17 +3219,16 @@ loser:
+         }
+     }
+     if (pubkey.data != NULL) {
+         PORT_Free(pubkey.data);
+     }
+     fclose(ecdhreq);
+ }
+ 
+-#define MATCH_OPENSSL 1
+ /*
+  * Perform the ECDH Validity Test.
+  *
+  * reqfn is the pathname of the REQUEST file.
+  *
+  * The output RESPONSE file is written to stdout.
+  */
+ void
+@@ -3403,42 +3411,47 @@ ecdh_verify(char *reqfn, PRBool response
+         if (strncmp(buf, "QeIUTx", 6) == 0) {
+             fputs(buf, ecdhresp);
+             continue;
+         }
+         if (strncmp(buf, "QeIUTy", 6) == 0) {
+             fputs(buf, ecdhresp);
+             continue;
+         }
+-        if (strncmp(buf, "CAVSHashZZ", 10) == 0) {
++        if ((strncmp(buf, "CAVSHashZZ", 10) == 0) ||
++            (strncmp(buf, "HashZZ", 6) == 0)) {
+             fputs(buf, ecdhresp);
+-            i = 10;
++            i = (buf[0] == 'C') ? 10 : 6;
+             while (isspace(buf[i]) || buf[i] == '=') {
+                 i++;
+             }
+             from_hex_str(cavsHashBuf, fips_hashLen(hash), &buf[i]);
+             if (current_ecparams == NULL) {
+                 fprintf(stderr, "no curve defined for type defined\n");
+                 goto loser;
+             }
+             /* validate CAVS public key */
+             if (EC_ValidatePublicKey(current_ecparams, &pubkey) != SECSuccess) {
+-#ifdef MATCH_OPENSSL
++#ifdef VERBOSE_REASON
++                fprintf(ecdhresp, "Result = F # key didn't validate\n");
++#else
+                 fprintf(ecdhresp, "Result = F\n");
+-#else
+-                fprintf(ecdhresp, "Result = F # key didn't validate\n");
+ #endif
+                 continue;
+             }
+ 
+             /* ECDH */
+             if (ECDH_Derive(&pubkey, current_ecparams, &private_value,
+                             PR_FALSE, &ZZ) != SECSuccess) {
+-                fprintf(stderr, "Derive failed\n");
+-                goto loser;
++#ifdef VERBOSE_REASON
++                fprintf(ecdhresp, "Result = F # derive failure\n");
++#else
++                fprintf(ecdhresp, "Result = F\n");
++#endif
++                continue;
+             }
+ /* output  ZZ */
+ #ifndef MATCH_OPENSSL
+             fputs("Z = ", ecdhresp);
+             to_hex_str(buf, ZZ.data, ZZ.len);
+             fputs(buf, ecdhresp);
+             fputc('\n', ecdhresp);
+ #endif
+@@ -3450,20 +3463,20 @@ ecdh_verify(char *reqfn, PRBool response
+             SECITEM_FreeItem(&ZZ, PR_FALSE);
+ #ifndef MATCH_NIST
+             fputs("IUTHashZZ = ", ecdhresp);
+             to_hex_str(buf, hashBuf, fips_hashLen(hash));
+             fputs(buf, ecdhresp);
+             fputc('\n', ecdhresp);
+ #endif
+             if (memcmp(hashBuf, cavsHashBuf, fips_hashLen(hash)) != 0) {
+-#ifdef MATCH_OPENSSL
++#ifdef VERBOSE_REASON
++                fprintf(ecdhresp, "Result = F # hash doesn't match\n");
++#else
+                 fprintf(ecdhresp, "Result = F\n");
+-#else
+-                fprintf(ecdhresp, "Result = F # hash doesn't match\n");
+ #endif
+             } else {
+                 fprintf(ecdhresp, "Result = P\n");
+             }
+ #ifndef MATCH_OPENSSL
+             fputc('\n', ecdhresp);
+ #endif
+             continue;
+@@ -3670,17 +3683,16 @@ dh_functional(char *reqfn, PRBool respon
+     }
+ loser:
+     if (dsapriv != NULL) {
+         PORT_FreeArena(dsapriv->params.arena, PR_TRUE);
+     }
+     fclose(dhreq);
+ }
+ 
+-#define MATCH_OPENSSL 1
+ /*
+  * Perform the DH Validity Test.
+  *
+  * reqfn is the pathname of the REQUEST file.
+  *
+  * The output RESPONSE file is written to stdout.
+  */
+ void
+@@ -3841,19 +3853,20 @@ dh_verify(char *reqfn, PRBool response)
+             continue;
+         }
+         /* YephemUIT = ... */
+         if (strncmp(buf, "YephemIUT", 9) == 0) {
+             fputs(buf, dhresp);
+             continue;
+         }
+         /* CAVSHashZZ = ... */
+-        if (strncmp(buf, "CAVSHashZZ", 10) == 0) {
++        if ((strncmp(buf, "CAVSHashZZ", 10) == 0) ||
++            (strncmp(buf, "HashZZ", 6) == 0)) {
+             fputs(buf, dhresp);
+-            i = 10;
++            i = buf[0] == 'C' ? 10 : 6;
+             while (isspace(buf[i]) || buf[i] == '=') {
+                 i++;
+             }
+             from_hex_str(cavsHashBuf, fips_hashLen(hash), &buf[i]);
+             /* do the DH operation*/
+             if (DH_Derive(&pubkey, &pqg.prime, &privkey,
+                           &ZZ, pqg.prime.len) != SECSuccess) {
+                 fprintf(stderr, "Derive failed\n");
+@@ -3866,17 +3879,17 @@ dh_verify(char *reqfn, PRBool response)
+             fputs(buf, dhresp);
+             fputc('\n', dhresp);
+ #endif
+             if (fips_hashBuf(hash, hashBuf, ZZ.data, ZZ.len) != SECSuccess) {
+                 fprintf(stderr, "hash of derived key failed\n");
+                 goto loser;
+             }
+             SECITEM_FreeItem(&ZZ, PR_FALSE);
+-#ifndef MATCH_NIST_
++#ifndef MATCH_NIST
+             fputs("IUTHashZZ = ", dhresp);
+             to_hex_str(buf, hashBuf, fips_hashLen(hash));
+             fputs(buf, dhresp);
+             fputc('\n', dhresp);
+ #endif
+             if (memcmp(hashBuf, cavsHashBuf, fips_hashLen(hash)) != 0) {
+                 fprintf(dhresp, "Result = F\n");
+             } else {
+@@ -6895,16 +6908,1306 @@ loser:
+     if (master_secret)
+         free(master_secret);
+     if (key_block)
+         free(key_block);
+     if (tlsreq)
+         fclose(tlsreq);
+ }
+ 
++void
++ikev1(char *reqfn)
++{
++    char buf[4096]; /* holds one line from the input REQUEST file.
++                         * needs to be large enough to hold the longest
++                         * line "g^xy = <2048 hex digits>\n".
++                         */
++    unsigned char *gxy = NULL;
++    int gxy_len;
++    unsigned char *Ni = NULL;
++    int Ni_len;
++    unsigned char *Nr = NULL;
++    int Nr_len;
++    unsigned char CKYi[8];
++    int CKYi_len;
++    unsigned char CKYr[8];
++    int CKYr_len;
++    unsigned int i, j;
++    FILE *ikereq = NULL; /* input stream from the REQUEST file */
++    FILE *ikeresp;       /* output stream to the RESPONSE file */
++
++    CK_SLOT_ID slotList[10];
++    CK_SLOT_ID slotID;
++    CK_ULONG slotListCount = sizeof(slotList) / sizeof(slotList[0]);
++    CK_ULONG count;
++    static const CK_C_INITIALIZE_ARGS pk11args = {
++        NULL, NULL, NULL, NULL, CKF_LIBRARY_CANT_CREATE_OS_THREADS,
++        (void *)"flags=readOnly,noCertDB,noModDB", NULL
++    };
++    static CK_OBJECT_CLASS ck_secret = CKO_SECRET_KEY;
++    static CK_KEY_TYPE ck_generic = CKK_GENERIC_SECRET;
++    static CK_BBOOL ck_true = CK_TRUE;
++    static CK_ULONG keyLen = 1;
++    CK_ATTRIBUTE gxy_template[] = {
++        { CKA_VALUE, NULL, 0 }, /* must be first */
++        { CKA_CLASS, &ck_secret, sizeof(ck_secret) },
++        { CKA_KEY_TYPE, &ck_generic, sizeof(ck_generic) },
++        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
++    };
++    CK_ULONG gxy_template_count =
++        sizeof(gxy_template) / sizeof(gxy_template[0]);
++    CK_ATTRIBUTE derive_template[] = {
++        { CKA_CLASS, &ck_secret, sizeof(ck_secret) },
++        { CKA_KEY_TYPE, &ck_generic, sizeof(ck_generic) },
++        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
++        { CKA_VALUE_LEN, &keyLen, sizeof(keyLen) }, /* must be last */
++    };
++    CK_ULONG derive_template_count =
++        sizeof(derive_template) / sizeof(derive_template[0]);
++    CK_ATTRIBUTE skeyid_template =
++        { CKA_VALUE, NULL, 0 };
++    CK_ATTRIBUTE skeyid_d_template =
++        { CKA_VALUE, NULL, 0 };
++    CK_ATTRIBUTE skeyid_a_template =
++        { CKA_VALUE, NULL, 0 };
++    CK_ATTRIBUTE skeyid_e_template =
++        { CKA_VALUE, NULL, 0 };
++    unsigned char skeyid_secret[HASH_LENGTH_MAX];
++    unsigned char skeyid_d_secret[HASH_LENGTH_MAX];
++    unsigned char skeyid_a_secret[HASH_LENGTH_MAX];
++    unsigned char skeyid_e_secret[HASH_LENGTH_MAX];
++
++    CK_MECHANISM ike_mech = { CKM_NSS_IKE_PRF_DERIVE, NULL, 0 };
++    CK_MECHANISM ike1_mech = { CKM_NSS_IKE1_PRF_DERIVE, NULL, 0 };
++    CK_NSS_IKE_PRF_DERIVE_PARAMS ike_prf;
++    CK_NSS_IKE1_PRF_DERIVE_PARAMS ike1_prf;
++    CK_RV crv;
++
++    /* set up PKCS #11 parameters */
++    ike_prf.bDataAsKey = PR_TRUE;
++    ike_prf.bRekey = PR_FALSE;
++    ike_prf.hNewKey = CK_INVALID_HANDLE;
++    CKYi_len = sizeof(CKYi);
++    CKYr_len = sizeof(CKYr);
++    ike1_prf.pCKYi = CKYi;
++    ike1_prf.ulCKYiLen = CKYi_len;
++    ike1_prf.pCKYr = CKYr;
++    ike1_prf.ulCKYrLen = CKYr_len;
++    ike_mech.pParameter = &ike_prf;
++    ike_mech.ulParameterLen = sizeof(ike_prf);
++    ike1_mech.pParameter = &ike1_prf;
++    ike1_mech.ulParameterLen = sizeof(ike1_prf);
++    skeyid_template.pValue = skeyid_secret;
++    skeyid_template.ulValueLen = HASH_LENGTH_MAX;
++    skeyid_d_template.pValue = skeyid_d_secret;
++    skeyid_d_template.ulValueLen = HASH_LENGTH_MAX;
++    skeyid_a_template.pValue = skeyid_a_secret;
++    skeyid_a_template.ulValueLen = HASH_LENGTH_MAX;
++    skeyid_e_template.pValue = skeyid_e_secret;
++    skeyid_e_template.ulValueLen = HASH_LENGTH_MAX;
++
++    crv = NSC_Initialize((CK_VOID_PTR)&pk11args);
++    if (crv != CKR_OK) {
++        fprintf(stderr, "NSC_Initialize failed crv=0x%x\n", (unsigned int)crv);
++        goto loser;
++    }
++    count = slotListCount;
++    crv = NSC_GetSlotList(PR_TRUE, slotList, &count);
++    if (crv != CKR_OK) {
++        fprintf(stderr, "NSC_GetSlotList failed crv=0x%x\n", (unsigned int)crv);
++        goto loser;
++    }
++    if ((count > slotListCount) || count < 1) {
++        fprintf(stderr,
++                "NSC_GetSlotList returned too many or too few slots: %d slots max=%d min=1\n",
++                (int)count, (int)slotListCount);
++        goto loser;
++    }
++    slotID = slotList[0];
++    ikereq = fopen(reqfn, "r");
++    ikeresp = stdout;
++    while (fgets(buf, sizeof buf, ikereq) != NULL) {
++        /* a comment or blank line */
++        if (buf[0] == '#' || buf[0] == '\n') {
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* [.....] */
++        if (buf[0] == '[') {
++            if (strncmp(buf, "[SHA-1]", 7) == 0) {
++                ike_prf.prfMechanism = CKM_SHA_1_HMAC;
++                ike1_prf.prfMechanism = CKM_SHA_1_HMAC;
++            }
++            if (strncmp(buf, "[SHA-224]", 9) == 0) {
++                ike_prf.prfMechanism = CKM_SHA224_HMAC;
++                ike1_prf.prfMechanism = CKM_SHA224_HMAC;
++            }
++            if (strncmp(buf, "[SHA-256]", 9) == 0) {
++                ike_prf.prfMechanism = CKM_SHA256_HMAC;
++                ike1_prf.prfMechanism = CKM_SHA256_HMAC;
++            }
++            if (strncmp(buf, "[SHA-384]", 9) == 0) {
++                ike_prf.prfMechanism = CKM_SHA384_HMAC;
++                ike1_prf.prfMechanism = CKM_SHA384_HMAC;
++            }
++            if (strncmp(buf, "[SHA-512]", 9) == 0) {
++                ike_prf.prfMechanism = CKM_SHA512_HMAC;
++                ike1_prf.prfMechanism = CKM_SHA512_HMAC;
++            }
++            if (strncmp(buf, "[AES-XCBC", 9) == 0) {
++                ike_prf.prfMechanism = CKM_AES_XCBC_MAC;
++                ike1_prf.prfMechanism = CKM_AES_XCBC_MAC;
++            }
++            if (strncmp(buf, "[g^xy", 5) == 0) {
++                if (sscanf(buf, "[g^xy length = %d]",
++                           &gxy_len) != 1) {
++                    goto loser;
++                }
++                gxy_len = gxy_len / 8;
++                if (gxy)
++                    free(gxy);
++                gxy = malloc(gxy_len);
++                gxy_template[0].pValue = gxy;
++                gxy_template[0].ulValueLen = gxy_len;
++            }
++            if (strncmp(buf, "[Ni", 3) == 0) {
++                if (sscanf(buf, "[Ni length = %d]", &Ni_len) != 1) {
++                    goto loser;
++                }
++                Ni_len = Ni_len / 8;
++                if (Ni)
++                    free(Ni);
++                Ni = malloc(Ni_len);
++                ike_prf.pNi = Ni;
++                ike_prf.ulNiLen = Ni_len;
++            }
++            if (strncmp(buf, "[Nr", 3) == 0) {
++                if (sscanf(buf, "[Nr length = %d]", &Nr_len) != 1) {
++                    goto loser;
++                }
++                Nr_len = Nr_len / 8;
++                if (Nr)
++                    free(Nr);
++                Nr = malloc(Nr_len);
++                ike_prf.pNr = Nr;
++                ike_prf.ulNrLen = Nr_len;
++            }
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* "COUNT = x" begins a new data set */
++        if (strncmp(buf, "COUNT", 5) == 0) {
++            /* zeroize the variables for the test with this data set */
++            memset(gxy, 0, gxy_len);
++            memset(Ni, 0, Ni_len);
++            memset(Nr, 0, Nr_len);
++            memset(CKYi, 0, CKYi_len);
++            memset(CKYr, 0, CKYr_len);
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* Ni = ... */
++        if (strncmp(buf, "Ni", 2) == 0) {
++            i = 2;
++            while (isspace(buf[i]) || buf[i] == '=') {
++                i++;
++            }
++            for (j = 0; j < Ni_len; i += 2, j++) {
++                hex_to_byteval(&buf[i], &Ni[j]);
++            }
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* Nr = ... */
++        if (strncmp(buf, "Nr", 2) == 0) {
++            i = 2;
++            while (isspace(buf[i]) || buf[i] == '=') {
++                i++;
++            }
++            for (j = 0; j < Nr_len; i += 2, j++) {
++                hex_to_byteval(&buf[i], &Nr[j]);
++            }
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* CKYi = ... */
++        if (strncmp(buf, "CKY_I", 5) == 0) {
++            i = 5;
++            while (isspace(buf[i]) || buf[i] == '=') {
++                i++;
++            }
++            for (j = 0; j < CKYi_len; i += 2, j++) {
++                hex_to_byteval(&buf[i], &CKYi[j]);
++            }
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* CKYr = ... */
++        if (strncmp(buf, "CKY_R", 5) == 0) {
++            i = 5;
++            while (isspace(buf[i]) || buf[i] == '=') {
++                i++;
++            }
++            for (j = 0; j < CKYr_len; i += 2, j++) {
++                hex_to_byteval(&buf[i], &CKYr[j]);
++            }
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* g^xy = ... */
++        if (strncmp(buf, "g^xy", 4) == 0) {
++            CK_SESSION_HANDLE session;
++            CK_OBJECT_HANDLE gxy_handle;
++            CK_OBJECT_HANDLE skeyid_handle;
++            CK_OBJECT_HANDLE skeyid_d_handle;
++            CK_OBJECT_HANDLE skeyid_a_handle;
++            CK_OBJECT_HANDLE skeyid_e_handle;
++            i = 4;
++            while (isspace(buf[i]) || buf[i] == '=') {
++                i++;
++            }
++            for (j = 0; j < gxy_len; i += 2, j++) {
++                hex_to_byteval(&buf[i], &gxy[j]);
++            }
++            fputs(buf, ikeresp);
++            crv = NSC_OpenSession(slotID, 0, NULL, NULL, &session);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_OpenSession failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            crv = NSC_CreateObject(session, gxy_template,
++                                   gxy_template_count, &gxy_handle);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_CreateObject failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            /* get the skeyid key */
++            crv = NSC_DeriveKey(session, &ike_mech, gxy_handle,
++                                derive_template, derive_template_count - 1,
++                                &skeyid_handle);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_DeriveKey(skeyid) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            skeyid_template.ulValueLen = HASH_LENGTH_MAX;
++            crv = NSC_GetAttributeValue(session, skeyid_handle,
++                                        &skeyid_template, 1);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_GetAttribute(skeyid) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            /* use the length of the skeyid to set the target length of all the
++             * other keys */
++            keyLen = skeyid_template.ulValueLen;
++            ike1_prf.hKeygxy = gxy_handle;
++            ike1_prf.bHasPrevKey = PR_FALSE;
++            ike1_prf.keyNumber = 0;
++            crv = NSC_DeriveKey(session, &ike1_mech, skeyid_handle,
++                                derive_template, derive_template_count,
++                                &skeyid_d_handle);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_DeriveKey(skeyid_d) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++
++            ike1_prf.hKeygxy = gxy_handle;
++            ike1_prf.bHasPrevKey = CK_TRUE;
++            ike1_prf.hPrevKey = skeyid_d_handle;
++            ike1_prf.keyNumber = 1;
++            crv = NSC_DeriveKey(session, &ike1_mech, skeyid_handle,
++                                derive_template, derive_template_count,
++                                &skeyid_a_handle);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_DeriveKey(skeyid_a) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            ike1_prf.hKeygxy = gxy_handle;
++            ike1_prf.bHasPrevKey = CK_TRUE;
++            ike1_prf.hPrevKey = skeyid_a_handle;
++            ike1_prf.keyNumber = 2;
++            crv = NSC_DeriveKey(session, &ike1_mech, skeyid_handle,
++                                derive_template, derive_template_count,
++                                &skeyid_e_handle);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_DeriveKey(skeyid_e) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            fputs("SKEYID = ", ikeresp);
++            to_hex_str(buf, skeyid_secret, keyLen);
++            fputs(buf, ikeresp);
++            fputc('\n', ikeresp);
++
++            skeyid_d_template.ulValueLen = keyLen;
++            crv = NSC_GetAttributeValue(session, skeyid_d_handle,
++                                        &skeyid_d_template, 1);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_GetAttribute(skeyid_d) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            fputs("SKEYID_d = ", ikeresp);
++            to_hex_str(buf, skeyid_d_secret, skeyid_d_template.ulValueLen);
++            fputs(buf, ikeresp);
++            fputc('\n', ikeresp);
++
++            skeyid_a_template.ulValueLen = keyLen;
++            crv = NSC_GetAttributeValue(session, skeyid_a_handle,
++                                        &skeyid_a_template, 1);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_GetAttribute(skeyid_a) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            fputs("SKEYID_a = ", ikeresp);
++            to_hex_str(buf, skeyid_a_secret, skeyid_a_template.ulValueLen);
++            fputs(buf, ikeresp);
++            fputc('\n', ikeresp);
++
++            skeyid_e_template.ulValueLen = keyLen;
++            crv = NSC_GetAttributeValue(session, skeyid_e_handle,
++                                        &skeyid_e_template, 1);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_GetAttribute(skeyid_e) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            fputs("SKEYID_e = ", ikeresp);
++            to_hex_str(buf, skeyid_e_secret, skeyid_e_template.ulValueLen);
++            fputs(buf, ikeresp);
++            fputc('\n', ikeresp);
++
++            crv = NSC_CloseSession(session);
++            continue;
++        }
++    }
++loser:
++    NSC_Finalize(NULL);
++    if (gxy)
++        free(gxy);
++    if (Ni)
++        free(Ni);
++    if (Nr)
++        free(Nr);
++    if (ikereq)
++        fclose(ikereq);
++}
++
++void
++ikev1_psk(char *reqfn)
++{
++    char buf[4096]; /* holds one line from the input REQUEST file.
++                         * needs to be large enough to hold the longest
++                         * line "g^xy = <2048 hex digits>\n".
++                         */
++    unsigned char *gxy = NULL;
++    int gxy_len;
++    unsigned char *Ni = NULL;
++    int Ni_len;
++    unsigned char *Nr = NULL;
++    int Nr_len;
++    unsigned char CKYi[8];
++    int CKYi_len;
++    unsigned char CKYr[8];
++    int CKYr_len;
++    unsigned char *psk = NULL;
++    int psk_len;
++    unsigned int i, j;
++    FILE *ikereq = NULL; /* input stream from the REQUEST file */
++    FILE *ikeresp;       /* output stream to the RESPONSE file */
++
++    CK_SLOT_ID slotList[10];
++    CK_SLOT_ID slotID;
++    CK_ULONG slotListCount = sizeof(slotList) / sizeof(slotList[0]);
++    CK_ULONG count;
++    static const CK_C_INITIALIZE_ARGS pk11args = {
++        NULL, NULL, NULL, NULL, CKF_LIBRARY_CANT_CREATE_OS_THREADS,
++        (void *)"flags=readOnly,noCertDB,noModDB", NULL
++    };
++    static CK_OBJECT_CLASS ck_secret = CKO_SECRET_KEY;
++    static CK_KEY_TYPE ck_generic = CKK_GENERIC_SECRET;
++    static CK_BBOOL ck_true = CK_TRUE;
++    static CK_ULONG keyLen = 1;
++    CK_ATTRIBUTE gxy_template[] = {
++        { CKA_VALUE, NULL, 0 }, /* must be first */
++        { CKA_CLASS, &ck_secret, sizeof(ck_secret) },
++        { CKA_KEY_TYPE, &ck_generic, sizeof(ck_generic) },
++        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
++    };
++    CK_ULONG gxy_template_count =
++        sizeof(gxy_template) / sizeof(gxy_template[0]);
++    CK_ATTRIBUTE psk_template[] = {
++        { CKA_VALUE, NULL, 0 }, /* must be first */
++        { CKA_CLASS, &ck_secret, sizeof(ck_secret) },
++        { CKA_KEY_TYPE, &ck_generic, sizeof(ck_generic) },
++        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
++    };
++    CK_ULONG psk_template_count =
++        sizeof(psk_template) / sizeof(psk_template[0]);
++    CK_ATTRIBUTE derive_template[] = {
++        { CKA_CLASS, &ck_secret, sizeof(ck_secret) },
++        { CKA_KEY_TYPE, &ck_generic, sizeof(ck_generic) },
++        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
++        { CKA_VALUE_LEN, &keyLen, sizeof(keyLen) }, /* must be last */
++    };
++    CK_ULONG derive_template_count =
++        sizeof(derive_template) / sizeof(derive_template[0]);
++    CK_ATTRIBUTE skeyid_template =
++        { CKA_VALUE, NULL, 0 };
++    CK_ATTRIBUTE skeyid_d_template =
++        { CKA_VALUE, NULL, 0 };
++    CK_ATTRIBUTE skeyid_a_template =
++        { CKA_VALUE, NULL, 0 };
++    CK_ATTRIBUTE skeyid_e_template =
++        { CKA_VALUE, NULL, 0 };
++    unsigned char skeyid_secret[HASH_LENGTH_MAX];
++    unsigned char skeyid_d_secret[HASH_LENGTH_MAX];
++    unsigned char skeyid_a_secret[HASH_LENGTH_MAX];
++    unsigned char skeyid_e_secret[HASH_LENGTH_MAX];
++
++    CK_MECHANISM ike_mech = { CKM_NSS_IKE_PRF_DERIVE, NULL, 0 };
++    CK_MECHANISM ike1_mech = { CKM_NSS_IKE1_PRF_DERIVE, NULL, 0 };
++    CK_NSS_IKE_PRF_DERIVE_PARAMS ike_prf;
++    CK_NSS_IKE1_PRF_DERIVE_PARAMS ike1_prf;
++    CK_RV crv;
++
++    /* set up PKCS #11 parameters */
++    ike_prf.bDataAsKey = PR_FALSE;
++    ike_prf.bRekey = PR_FALSE;
++    ike_prf.hNewKey = CK_INVALID_HANDLE;
++    CKYi_len = 8;
++    CKYr_len = 8;
++    ike1_prf.pCKYi = CKYi;
++    ike1_prf.ulCKYiLen = CKYi_len;
++    ike1_prf.pCKYr = CKYr;
++    ike1_prf.ulCKYrLen = CKYr_len;
++    ike_mech.pParameter = &ike_prf;
++    ike_mech.ulParameterLen = sizeof(ike_prf);
++    ike1_mech.pParameter = &ike1_prf;
++    ike1_mech.ulParameterLen = sizeof(ike1_prf);
++    skeyid_template.pValue = skeyid_secret;
++    skeyid_template.ulValueLen = HASH_LENGTH_MAX;
++    skeyid_d_template.pValue = skeyid_d_secret;
++    skeyid_d_template.ulValueLen = HASH_LENGTH_MAX;
++    skeyid_a_template.pValue = skeyid_a_secret;
++    skeyid_a_template.ulValueLen = HASH_LENGTH_MAX;
++    skeyid_e_template.pValue = skeyid_e_secret;
++    skeyid_e_template.ulValueLen = HASH_LENGTH_MAX;
++
++    crv = NSC_Initialize((CK_VOID_PTR)&pk11args);
++    if (crv != CKR_OK) {
++        fprintf(stderr, "NSC_Initialize failed crv=0x%x\n", (unsigned int)crv);
++        goto loser;
++    }
++    count = slotListCount;
++    crv = NSC_GetSlotList(PR_TRUE, slotList, &count);
++    if (crv != CKR_OK) {
++        fprintf(stderr, "NSC_GetSlotList failed crv=0x%x\n", (unsigned int)crv);
++        goto loser;
++    }
++    if ((count > slotListCount) || count < 1) {
++        fprintf(stderr,
++                "NSC_GetSlotList returned too many or too few slots: %d slots max=%d min=1\n",
++                (int)count, (int)slotListCount);
++        goto loser;
++    }
++    slotID = slotList[0];
++    ikereq = fopen(reqfn, "r");
++    ikeresp = stdout;
++    while (fgets(buf, sizeof buf, ikereq) != NULL) {
++        /* a comment or blank line */
++        if (buf[0] == '#' || buf[0] == '\n') {
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* [.....] */
++        if (buf[0] == '[') {
++            if (strncmp(buf, "[SHA-1]", 7) == 0) {
++                ike_prf.prfMechanism = CKM_SHA_1_HMAC;
++                ike1_prf.prfMechanism = CKM_SHA_1_HMAC;
++            }
++            if (strncmp(buf, "[SHA-224]", 9) == 0) {
++                ike_prf.prfMechanism = CKM_SHA224_HMAC;
++                ike1_prf.prfMechanism = CKM_SHA224_HMAC;
++            }
++            if (strncmp(buf, "[SHA-256]", 9) == 0) {
++                ike_prf.prfMechanism = CKM_SHA256_HMAC;
++                ike1_prf.prfMechanism = CKM_SHA256_HMAC;
++            }
++            if (strncmp(buf, "[SHA-384]", 9) == 0) {
++                ike_prf.prfMechanism = CKM_SHA384_HMAC;
++                ike1_prf.prfMechanism = CKM_SHA384_HMAC;
++            }
++            if (strncmp(buf, "[SHA-512]", 9) == 0) {
++                ike_prf.prfMechanism = CKM_SHA512_HMAC;
++                ike1_prf.prfMechanism = CKM_SHA512_HMAC;
++            }
++            if (strncmp(buf, "[AES-XCBC", 9) == 0) {
++                ike_prf.prfMechanism = CKM_AES_XCBC_MAC;
++                ike1_prf.prfMechanism = CKM_AES_XCBC_MAC;
++            }
++            if (strncmp(buf, "[g^xy", 5) == 0) {
++                if (sscanf(buf, "[g^xy length = %d]",
++                           &gxy_len) != 1) {
++                    goto loser;
++                }
++                gxy_len = gxy_len / 8;
++                if (gxy)
++                    free(gxy);
++                gxy = malloc(gxy_len);
++                gxy_template[0].pValue = gxy;
++                gxy_template[0].ulValueLen = gxy_len;
++            }
++            if (strncmp(buf, "[pre-shared-key", 15) == 0) {
++                if (sscanf(buf, "[pre-shared-key length = %d]",
++                           &psk_len) != 1) {
++                    goto loser;
++                }
++                psk_len = psk_len / 8;
++                if (psk)
++                    free(psk);
++                psk = malloc(psk_len);
++                psk_template[0].pValue = psk;
++                psk_template[0].ulValueLen = psk_len;
++            }
++            if (strncmp(buf, "[Ni", 3) == 0) {
++                if (sscanf(buf, "[Ni length = %d]", &Ni_len) != 1) {
++                    goto loser;
++                }
++                Ni_len = Ni_len / 8;
++                if (Ni)
++                    free(Ni);
++                Ni = malloc(Ni_len);
++                ike_prf.pNi = Ni;
++                ike_prf.ulNiLen = Ni_len;
++            }
++            if (strncmp(buf, "[Nr", 3) == 0) {
++                if (sscanf(buf, "[Nr length = %d]", &Nr_len) != 1) {
++                    goto loser;
++                }
++                Nr_len = Nr_len / 8;
++                if (Nr)
++                    free(Nr);
++                Nr = malloc(Nr_len);
++                ike_prf.pNr = Nr;
++                ike_prf.ulNrLen = Nr_len;
++            }
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* "COUNT = x" begins a new data set */
++        if (strncmp(buf, "COUNT", 5) == 0) {
++            /* zeroize the variables for the test with this data set */
++            memset(gxy, 0, gxy_len);
++            memset(Ni, 0, Ni_len);
++            memset(Nr, 0, Nr_len);
++            memset(CKYi, 0, CKYi_len);
++            memset(CKYr, 0, CKYr_len);
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* Ni = ... */
++        if (strncmp(buf, "Ni", 2) == 0) {
++            i = 2;
++            while (isspace(buf[i]) || buf[i] == '=') {
++                i++;
++            }
++            for (j = 0; j < Ni_len; i += 2, j++) {
++                hex_to_byteval(&buf[i], &Ni[j]);
++            }
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* Nr = ... */
++        if (strncmp(buf, "Nr", 2) == 0) {
++            i = 2;
++            while (isspace(buf[i]) || buf[i] == '=') {
++                i++;
++            }
++            for (j = 0; j < Nr_len; i += 2, j++) {
++                hex_to_byteval(&buf[i], &Nr[j]);
++            }
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* CKYi = ... */
++        if (strncmp(buf, "CKY_I", 5) == 0) {
++            i = 5;
++            while (isspace(buf[i]) || buf[i] == '=') {
++                i++;
++            }
++            for (j = 0; j < CKYi_len; i += 2, j++) {
++                hex_to_byteval(&buf[i], &CKYi[j]);
++            }
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* CKYr = ... */
++        if (strncmp(buf, "CKY_R", 5) == 0) {
++            i = 5;
++            while (isspace(buf[i]) || buf[i] == '=') {
++                i++;
++            }
++            for (j = 0; j < CKYr_len; i += 2, j++) {
++                hex_to_byteval(&buf[i], &CKYr[j]);
++            }
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* g^xy = ... */
++        if (strncmp(buf, "g^xy", 4) == 0) {
++            i = 4;
++            while (isspace(buf[i]) || buf[i] == '=') {
++                i++;
++            }
++            for (j = 0; j < gxy_len; i += 2, j++) {
++                hex_to_byteval(&buf[i], &gxy[j]);
++            }
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* pre-shared-key = ... */
++        if (strncmp(buf, "pre-shared-key", 14) == 0) {
++            CK_SESSION_HANDLE session;
++            CK_OBJECT_HANDLE gxy_handle;
++            CK_OBJECT_HANDLE psk_handle;
++            CK_OBJECT_HANDLE skeyid_handle;
++            CK_OBJECT_HANDLE skeyid_d_handle;
++            CK_OBJECT_HANDLE skeyid_a_handle;
++            CK_OBJECT_HANDLE skeyid_e_handle;
++            i = 14;
++            while (isspace(buf[i]) || buf[i] == '=') {
++                i++;
++            }
++            for (j = 0; j < psk_len; i += 2, j++) {
++                hex_to_byteval(&buf[i], &psk[j]);
++            }
++            fputs(buf, ikeresp);
++            crv = NSC_OpenSession(slotID, 0, NULL, NULL, &session);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_OpenSession failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            crv = NSC_CreateObject(session, psk_template,
++                                   psk_template_count, &psk_handle);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_CreateObject(psk) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            crv = NSC_CreateObject(session, gxy_template,
++                                   gxy_template_count, &gxy_handle);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_CreateObject(gxy) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            /* get the skeyid key */
++            crv = NSC_DeriveKey(session, &ike_mech, psk_handle,
++                                derive_template, derive_template_count - 1,
++                                &skeyid_handle);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_DeriveKey(skeyid) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            skeyid_template.ulValueLen = HASH_LENGTH_MAX;
++            crv = NSC_GetAttributeValue(session, skeyid_handle,
++                                        &skeyid_template, 1);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_GetAttribute(skeyid) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            /* use the length of the skeyid to set the target length of all the
++             * other keys */
++            keyLen = skeyid_template.ulValueLen;
++            ike1_prf.hKeygxy = gxy_handle;
++            ike1_prf.bHasPrevKey = PR_FALSE;
++            ike1_prf.keyNumber = 0;
++            crv = NSC_DeriveKey(session, &ike1_mech, skeyid_handle,
++                                derive_template, derive_template_count,
++                                &skeyid_d_handle);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_DeriveKey(skeyid_d) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++
++            ike1_prf.hKeygxy = gxy_handle;
++            ike1_prf.bHasPrevKey = CK_TRUE;
++            ike1_prf.hPrevKey = skeyid_d_handle;
++            ike1_prf.keyNumber = 1;
++            crv = NSC_DeriveKey(session, &ike1_mech, skeyid_handle,
++                                derive_template, derive_template_count,
++                                &skeyid_a_handle);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_DeriveKey(skeyid_a) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            ike1_prf.hKeygxy = gxy_handle;
++            ike1_prf.bHasPrevKey = CK_TRUE;
++            ike1_prf.hPrevKey = skeyid_a_handle;
++            ike1_prf.keyNumber = 2;
++            crv = NSC_DeriveKey(session, &ike1_mech, skeyid_handle,
++                                derive_template, derive_template_count,
++                                &skeyid_e_handle);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_DeriveKey(skeyid_e) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            fputs("SKEYID = ", ikeresp);
++            to_hex_str(buf, skeyid_secret, keyLen);
++            fputs(buf, ikeresp);
++            fputc('\n', ikeresp);
++
++            skeyid_d_template.ulValueLen = keyLen;
++            crv = NSC_GetAttributeValue(session, skeyid_d_handle,
++                                        &skeyid_d_template, 1);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_GetAttribute(skeyid_d) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            fputs("SKEYID_d = ", ikeresp);
++            to_hex_str(buf, skeyid_d_secret, skeyid_d_template.ulValueLen);
++            fputs(buf, ikeresp);
++            fputc('\n', ikeresp);
++
++            skeyid_a_template.ulValueLen = keyLen;
++            crv = NSC_GetAttributeValue(session, skeyid_a_handle,
++                                        &skeyid_a_template, 1);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_GetAttribute(skeyid_a) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            fputs("SKEYID_a = ", ikeresp);
++            to_hex_str(buf, skeyid_a_secret, skeyid_a_template.ulValueLen);
++            fputs(buf, ikeresp);
++            fputc('\n', ikeresp);
++
++            skeyid_e_template.ulValueLen = keyLen;
++            crv = NSC_GetAttributeValue(session, skeyid_e_handle,
++                                        &skeyid_e_template, 1);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_GetAttribute(skeyid_e) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            fputs("SKEYID_e = ", ikeresp);
++            to_hex_str(buf, skeyid_e_secret, skeyid_e_template.ulValueLen);
++            fputs(buf, ikeresp);
++            fputc('\n', ikeresp);
++
++            crv = NSC_CloseSession(session);
++            continue;
++        }
++    }
++loser:
++    NSC_Finalize(NULL);
++    if (psk)
++        free(psk);
++    if (gxy)
++        free(gxy);
++    if (Ni)
++        free(Ni);
++    if (Nr)
++        free(Nr);
++    if (ikereq)
++        fclose(ikereq);
++}
++
++void
++ikev2(char *reqfn)
++{
++    char buf[4096]; /* holds one line from the input REQUEST file.
++                         * needs to be large enough to hold the longest
++                         * line "g^xy = <2048 hex digits>\n".
++                         */
++    unsigned char *gir = NULL;
++    unsigned char *gir_new = NULL;
++    int gir_len;
++    unsigned char *Ni = NULL;
++    int Ni_len;
++    unsigned char *Nr = NULL;
++    int Nr_len;
++    unsigned char *SPIi = NULL;
++    int SPIi_len = 8;
++    unsigned char *SPIr = NULL;
++    int SPIr_len = 8;
++    unsigned char *DKM = NULL;
++    int DKM_len;
++    unsigned char *DKM_child = NULL;
++    int DKM_child_len;
++    unsigned char *seed_data = NULL;
++    int seed_data_len = 0;
++    unsigned int i, j;
++    FILE *ikereq = NULL; /* input stream from the REQUEST file */
++    FILE *ikeresp;       /* output stream to the RESPONSE file */
++
++    CK_SLOT_ID slotList[10];
++    CK_SLOT_ID slotID;
++    CK_ULONG slotListCount = sizeof(slotList) / sizeof(slotList[0]);
++    CK_ULONG count;
++    static const CK_C_INITIALIZE_ARGS pk11args = {
++        NULL, NULL, NULL, NULL, CKF_LIBRARY_CANT_CREATE_OS_THREADS,
++        (void *)"flags=readOnly,noCertDB,noModDB", NULL
++    };
++    static CK_OBJECT_CLASS ck_secret = CKO_SECRET_KEY;
++    static CK_KEY_TYPE ck_generic = CKK_GENERIC_SECRET;
++    static CK_BBOOL ck_true = CK_TRUE;
++    static CK_ULONG keyLen = 1;
++    CK_ATTRIBUTE gir_template[] = {
++        { CKA_VALUE, NULL, 0 },
++        { CKA_CLASS, &ck_secret, sizeof(ck_secret) },
++        { CKA_KEY_TYPE, &ck_generic, sizeof(ck_generic) },
++        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
++    };
++    CK_ULONG gir_template_count =
++        sizeof(gir_template) / sizeof(gir_template[0]);
++    CK_ATTRIBUTE gir_new_template[] = {
++        { CKA_VALUE, NULL, 0 },
++        { CKA_CLASS, &ck_secret, sizeof(ck_secret) },
++        { CKA_KEY_TYPE, &ck_generic, sizeof(ck_generic) },
++        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
++    };
++    CK_ULONG gir_new_template_count =
++        sizeof(gir_new_template) / sizeof(gir_new_template[0]);
++    CK_ATTRIBUTE derive_template[] = {
++        { CKA_CLASS, &ck_secret, sizeof(ck_secret) },
++        { CKA_KEY_TYPE, &ck_generic, sizeof(ck_generic) },
++        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
++        { CKA_VALUE_LEN, &keyLen, sizeof(keyLen) },
++    };
++    CK_ULONG derive_template_count =
++        sizeof(derive_template) / sizeof(derive_template[0]);
++    CK_ATTRIBUTE skeyseed_template =
++        { CKA_VALUE, NULL, 0 };
++    CK_ATTRIBUTE dkm_template =
++        { CKA_VALUE, NULL, 0 };
++    CK_ATTRIBUTE dkm_child_template =
++        { CKA_VALUE, NULL, 0 };
++    unsigned char skeyseed_secret[HASH_LENGTH_MAX];
++
++    CK_MECHANISM ike_mech = { CKM_NSS_IKE_PRF_DERIVE, NULL, 0 };
++    CK_MECHANISM ike2_mech = { CKM_NSS_IKE_PRF_PLUS_DERIVE, NULL, 0 };
++    CK_MECHANISM subset_mech = { CKM_EXTRACT_KEY_FROM_KEY, NULL, 0 };
++    CK_NSS_IKE_PRF_DERIVE_PARAMS ike_prf;
++    CK_NSS_IKE_PRF_PLUS_DERIVE_PARAMS ike2_prf;
++    CK_EXTRACT_PARAMS subset_params;
++    CK_RV crv;
++
++    /* set up PKCS #11 parameters */
++    ike_mech.pParameter = &ike_prf;
++    ike_mech.ulParameterLen = sizeof(ike_prf);
++    ike2_mech.pParameter = &ike2_prf;
++    ike2_mech.ulParameterLen = sizeof(ike2_prf);
++    subset_mech.pParameter = &subset_params;
++    subset_mech.ulParameterLen = sizeof(subset_params);
++    subset_params = 0;
++    skeyseed_template.pValue = skeyseed_secret;
++    skeyseed_template.ulValueLen = HASH_LENGTH_MAX;
++
++    crv = NSC_Initialize((CK_VOID_PTR)&pk11args);
++    if (crv != CKR_OK) {
++        fprintf(stderr, "NSC_Initialize failed crv=0x%x\n", (unsigned int)crv);
++        goto loser;
++    }
++    count = slotListCount;
++    crv = NSC_GetSlotList(PR_TRUE, slotList, &count);
++    if (crv != CKR_OK) {
++        fprintf(stderr, "NSC_GetSlotList failed crv=0x%x\n", (unsigned int)crv);
++        goto loser;
++    }
++    if ((count > slotListCount) || count < 1) {
++        fprintf(stderr,
++                "NSC_GetSlotList returned too many or too few slots: %d slots max=%d min=1\n",
++                (int)count, (int)slotListCount);
++        goto loser;
++    }
++    slotID = slotList[0];
++    ikereq = fopen(reqfn, "r");
++    ikeresp = stdout;
++    while (fgets(buf, sizeof buf, ikereq) != NULL) {
++        /* a comment or blank line */
++        if (buf[0] == '#' || buf[0] == '\n') {
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* [.....] */
++        if (buf[0] == '[') {
++            if (strncmp(buf, "[SHA-1]", 7) == 0) {
++                ike_prf.prfMechanism = CKM_SHA_1_HMAC;
++                ike2_prf.prfMechanism = CKM_SHA_1_HMAC;
++            }
++            if (strncmp(buf, "[SHA-224]", 9) == 0) {
++                ike_prf.prfMechanism = CKM_SHA224_HMAC;
++                ike2_prf.prfMechanism = CKM_SHA224_HMAC;
++            }
++            if (strncmp(buf, "[SHA-256]", 9) == 0) {
++                ike_prf.prfMechanism = CKM_SHA256_HMAC;
++                ike2_prf.prfMechanism = CKM_SHA256_HMAC;
++            }
++            if (strncmp(buf, "[SHA-384]", 9) == 0) {
++                ike_prf.prfMechanism = CKM_SHA384_HMAC;
++                ike2_prf.prfMechanism = CKM_SHA384_HMAC;
++            }
++            if (strncmp(buf, "[SHA-512]", 9) == 0) {
++                ike_prf.prfMechanism = CKM_SHA512_HMAC;
++                ike2_prf.prfMechanism = CKM_SHA512_HMAC;
++            }
++            if (strncmp(buf, "[AES-XCBC", 9) == 0) {
++                ike_prf.prfMechanism = CKM_AES_XCBC_MAC;
++                ike2_prf.prfMechanism = CKM_AES_XCBC_MAC;
++            }
++            if (strncmp(buf, "[g^ir", 5) == 0) {
++                if (sscanf(buf, "[g^ir length = %d]",
++                           &gir_len) != 1) {
++                    goto loser;
++                }
++                gir_len = gir_len / 8;
++                if (gir)
++                    free(gir);
++                if (gir_new)
++                    free(gir_new);
++                gir = malloc(gir_len);
++                gir_new = malloc(gir_len);
++                gir_template[0].pValue = gir;
++                gir_template[0].ulValueLen = gir_len;
++                gir_new_template[0].pValue = gir_new;
++                gir_new_template[0].ulValueLen = gir_len;
++            }
++            if (strncmp(buf, "[Ni", 3) == 0) {
++                if (sscanf(buf, "[Ni length = %d]", &Ni_len) != 1) {
++                    goto loser;
++                }
++                Ni_len = Ni_len / 8;
++            }
++            if (strncmp(buf, "[Nr", 3) == 0) {
++                if (sscanf(buf, "[Nr length = %d]", &Nr_len) != 1) {
++                    goto loser;
++                }
++                Nr_len = Nr_len / 8;
++            }
++            if (strncmp(buf, "[DKM", 4) == 0) {
++                if (sscanf(buf, "[DKM length = %d]",
++                           &DKM_len) != 1) {
++                    goto loser;
++                }
++                DKM_len = DKM_len / 8;
++                if (DKM)
++                    free(DKM);
++                DKM = malloc(DKM_len);
++                dkm_template.pValue = DKM;
++                dkm_template.ulValueLen = DKM_len;
++            }
++            if (strncmp(buf, "[Child SA DKM", 13) == 0) {
++                if (sscanf(buf, "[Child SA DKM length = %d]",
++                           &DKM_child_len) != 1) {
++                    goto loser;
++                }
++                DKM_child_len = DKM_child_len / 8;
++                if (DKM_child)
++                    free(DKM_child);
++                DKM_child = malloc(DKM_child_len);
++                dkm_child_template.pValue = DKM_child;
++                dkm_child_template.ulValueLen = DKM_child_len;
++            }
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* "COUNT = x" begins a new data set */
++        if (strncmp(buf, "COUNT", 5) == 0) {
++            /* zeroize the variables for the test with this data set */
++            int new_seed_len = Ni_len + Nr_len + SPIi_len + SPIr_len;
++            if (seed_data_len != new_seed_len) {
++                if (seed_data)
++                    free(seed_data);
++                seed_data_len = new_seed_len;
++                seed_data = malloc(seed_data_len);
++                Ni = seed_data;
++                Nr = &seed_data[Ni_len];
++                SPIi = &seed_data[Ni_len + Nr_len];
++                SPIr = &seed_data[new_seed_len - SPIr_len];
++                ike_prf.pNi = Ni;
++                ike_prf.ulNiLen = Ni_len;
++                ike_prf.pNr = Nr;
++                ike_prf.ulNrLen = Nr_len;
++                ike2_prf.pSeedData = seed_data;
++            }
++            memset(gir, 0, gir_len);
++            memset(gir_new, 0, gir_len);
++            memset(seed_data, 0, seed_data_len);
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* Ni = ... */
++        if (strncmp(buf, "Ni", 2) == 0) {
++            i = 2;
++            while (isspace(buf[i]) || buf[i] == '=') {
++                i++;
++            }
++            for (j = 0; j < Ni_len; i += 2, j++) {
++                hex_to_byteval(&buf[i], &Ni[j]);
++            }
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* Nr = ... */
++        if (strncmp(buf, "Nr", 2) == 0) {
++            i = 2;
++            while (isspace(buf[i]) || buf[i] == '=') {
++                i++;
++            }
++            for (j = 0; j < Nr_len; i += 2, j++) {
++                hex_to_byteval(&buf[i], &Nr[j]);
++            }
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* g^ir (new) = ... */
++        if (strncmp(buf, "g^ir (new)", 10) == 0) {
++            i = 10;
++            while (isspace(buf[i]) || buf[i] == '=') {
++                i++;
++            }
++            for (j = 0; j < gir_len; i += 2, j++) {
++                hex_to_byteval(&buf[i], &gir_new[j]);
++            }
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* g^ir = ... */
++        if (strncmp(buf, "g^ir", 4) == 0) {
++            i = 4;
++            while (isspace(buf[i]) || buf[i] == '=') {
++                i++;
++            }
++            for (j = 0; j < gir_len; i += 2, j++) {
++                hex_to_byteval(&buf[i], &gir[j]);
++            }
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* SPIi = ... */
++        if (strncmp(buf, "SPIi", 4) == 0) {
++            i = 4;
++            while (isspace(buf[i]) || buf[i] == '=') {
++                i++;
++            }
++            for (j = 0; j < SPIi_len; i += 2, j++) {
++                hex_to_byteval(&buf[i], &SPIi[j]);
++            }
++            fputs(buf, ikeresp);
++            continue;
++        }
++        /* SPIr = ... */
++        if (strncmp(buf, "SPIr", 4) == 0) {
++            CK_SESSION_HANDLE session;
++            CK_OBJECT_HANDLE gir_handle;
++            CK_OBJECT_HANDLE gir_new_handle;
++            CK_OBJECT_HANDLE skeyseed_handle;
++            CK_OBJECT_HANDLE sk_d_handle;
++            CK_OBJECT_HANDLE skeyseed_new_handle;
++            CK_OBJECT_HANDLE dkm_handle;
++            CK_OBJECT_HANDLE dkm_child_handle;
++            i = 4;
++            while (isspace(buf[i]) || buf[i] == '=') {
++                i++;
++            }
++            for (j = 0; j < SPIr_len; i += 2, j++) {
++                hex_to_byteval(&buf[i], &SPIr[j]);
++            }
++            fputs(buf, ikeresp);
++            crv = NSC_OpenSession(slotID, 0, NULL, NULL, &session);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_OpenSession failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            crv = NSC_CreateObject(session, gir_template,
++                                   gir_template_count, &gir_handle);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_CreateObject (g^ir) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            crv = NSC_CreateObject(session, gir_new_template,
++                                   gir_new_template_count, &gir_new_handle);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_CreateObject (g^ir new) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            /* get the SKEYSEED key */
++            ike_prf.bDataAsKey = CK_TRUE;
++            ike_prf.bRekey = CK_FALSE;
++            ike_prf.hNewKey = CK_INVALID_HANDLE;
++            crv = NSC_DeriveKey(session, &ike_mech, gir_handle,
++                                derive_template, derive_template_count - 1,
++                                &skeyseed_handle);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_DeriveKey(skeyid) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            skeyseed_template.ulValueLen = HASH_LENGTH_MAX;
++            crv = NSC_GetAttributeValue(session, skeyseed_handle,
++                                        &skeyseed_template, 1);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_GetAttribute(skeyid) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            fputs("SKEYSEED = ", ikeresp);
++            to_hex_str(buf, skeyseed_secret, skeyseed_template.ulValueLen);
++            fputs(buf, ikeresp);
++            fputc('\n', ikeresp);
++
++            /* get DKM */
++            keyLen = DKM_len;
++            ike2_prf.bHasSeedKey = CK_FALSE;
++            ike2_prf.hSeedKey = CK_INVALID_HANDLE;
++            ike2_prf.ulSeedDataLen = seed_data_len;
++            crv = NSC_DeriveKey(session, &ike2_mech, skeyseed_handle,
++                                derive_template, derive_template_count,
++                                &dkm_handle);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_DeriveKey(DKM) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            crv = NSC_GetAttributeValue(session, dkm_handle,
++                                        &dkm_template, 1);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_GetAttribute(DKM) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            fputs("DKM = ", ikeresp);
++            to_hex_str(buf, DKM, DKM_len);
++            fputs(buf, ikeresp);
++            fputc('\n', ikeresp);
++
++            /* get the sk_d from the DKM */
++            keyLen = skeyseed_template.ulValueLen;
++            crv = NSC_DeriveKey(session, &subset_mech, dkm_handle,
++                                derive_template, derive_template_count,
++                                &sk_d_handle);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_DeriveKey(sk_d) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++
++            /* get DKM child */
++            keyLen = DKM_child_len;
++            ike2_prf.bHasSeedKey = CK_FALSE;
++            ike2_prf.hSeedKey = CK_INVALID_HANDLE;
++            ike2_prf.ulSeedDataLen = Ni_len + Nr_len;
++            crv = NSC_DeriveKey(session, &ike2_mech, sk_d_handle,
++                                derive_template, derive_template_count,
++                                &dkm_child_handle);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_DeriveKey(DKM Child SA) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            crv = NSC_GetAttributeValue(session, dkm_child_handle,
++                                        &dkm_child_template, 1);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_GetAttribute(DKM Child SA) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            fputs("DKM(Child SA) = ", ikeresp);
++            to_hex_str(buf, DKM_child, DKM_child_len);
++            fputs(buf, ikeresp);
++            fputc('\n', ikeresp);
++
++            /* get DKM child D-H*/
++            keyLen = DKM_child_len;
++            ike2_prf.bHasSeedKey = CK_TRUE;
++            ike2_prf.hSeedKey = gir_new_handle;
++            ike2_prf.ulSeedDataLen = Ni_len + Nr_len;
++            crv = NSC_DeriveKey(session, &ike2_mech, sk_d_handle,
++                                derive_template, derive_template_count,
++                                &dkm_child_handle);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_DeriveKey(DKM Child SA D-H) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            crv = NSC_GetAttributeValue(session, dkm_child_handle,
++                                        &dkm_child_template, 1);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_GetAttribute(DKM Child SA D-H) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            fputs("DKM(Child SA D-H) = ", ikeresp);
++            to_hex_str(buf, DKM_child, DKM_child_len);
++            fputs(buf, ikeresp);
++            fputc('\n', ikeresp);
++
++            /* get SKEYSEED(rekey) */
++            ike_prf.bDataAsKey = CK_FALSE;
++            ike_prf.bRekey = CK_TRUE;
++            ike_prf.hNewKey = gir_new_handle;
++            crv = NSC_DeriveKey(session, &ike_mech, sk_d_handle,
++                                derive_template, derive_template_count - 1,
++                                &skeyseed_new_handle);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_DeriveKey(skeyid rekey) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            skeyseed_template.ulValueLen = HASH_LENGTH_MAX;
++            crv = NSC_GetAttributeValue(session, skeyseed_new_handle,
++                                        &skeyseed_template, 1);
++            if (crv != CKR_OK) {
++                fprintf(stderr, "NSC_GetAttribute(skeyid) failed crv=0x%x\n",
++                        (unsigned int)crv);
++                goto loser;
++            }
++            fputs("SKEYSEED(rekey) = ", ikeresp);
++            to_hex_str(buf, skeyseed_secret, skeyseed_template.ulValueLen);
++            fputs(buf, ikeresp);
++            fputc('\n', ikeresp);
++
++            crv = NSC_CloseSession(session);
++            continue;
++        }
++    }
++loser:
++    NSC_Finalize(NULL);
++    if (gir)
++        free(gir);
++    if (gir_new)
++        free(gir_new);
++    if (seed_data)
++        free(seed_data);
++    if (DKM)
++        free(DKM);
++    if (DKM_child)
++        free(DKM_child);
++    if (ikereq)
++        fclose(ikereq);
++}
++
+ int
+ main(int argc, char **argv)
+ {
+     if (argc < 2)
+         exit(-1);
+ 
+     RNG_RNGInit();
+     SECOID_Init();
+@@ -7066,11 +8369,19 @@ main(int argc, char **argv)
+             rng_mct(argv[3]);
+         }
+     } else if (strcmp(argv[1], "drbg") == 0) {
+         /* Variable Seed Test */
+         drbg(argv[2]);
+     } else if (strcmp(argv[1], "ddrbg") == 0) {
+         debug = 1;
+         drbg(argv[2]);
++    } else if (strcmp(argv[1], "tls") == 0) {
++        tls(argv[2]);
++    } else if (strcmp(argv[1], "ikev1") == 0) {
++        ikev1(argv[2]);
++    } else if (strcmp(argv[1], "ikev1-psk") == 0) {
++        ikev1_psk(argv[2]);
++    } else if (strcmp(argv[1], "ikev2") == 0) {
++        ikev2(argv[2]);
+     }
+     return 0;
+ }
+diff --git a/cmd/fipstest/hmac.sh b/cmd/fipstest/hmac.sh
+deleted file mode 100755
+--- a/cmd/fipstest/hmac.sh
++++ /dev/null
+@@ -1,36 +0,0 @@
+-#!/bin/sh
+-# 
+-# This Source Code Form is subject to the terms of the Mozilla Public
+-# License, v. 2.0. If a copy of the MPL was not distributed with this
+-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+-#
+-# A Bourne shell script for running the NIST HMAC Algorithm Validation Suite
+-#
+-# Before you run the script, set your PATH, LD_LIBRARY_PATH, ... environment
+-# variables appropriately so that the fipstest command and the NSPR and NSS
+-# shared libraries/DLLs are on the search path.  Then run this script in the
+-# directory where the REQUEST (.req) files reside.  The script generates the
+-# RESPONSE (.rsp) files in the same directory.
+-
+-BASEDIR=${1-.}
+-TESTDIR=${BASEDIR}/HMAC
+-COMMAND=${2-run}
+-REQDIR=${TESTDIR}/req
+-RSPDIR=${TESTDIR}/resp
+-                               
+-hmac_requests="
+-HMAC.req
+-"
+-
+-if [ ${COMMAND} = "verify" ]; then
+-    for request in $hmac_requests; do
+-	sh ./validate1.sh ${TESTDIR} $request
+-    done
+-    exit 0
+-fi
+-for request in $hmac_requests; do
+-    response=`echo $request | sed -e "s/req/rsp/"`
+-    echo $request $response
+-    fipstest hmac ${REQDIR}/$request > ${RSPDIR}/$response
+-done
+-
+diff --git a/cmd/fipstest/kas.sh b/cmd/fipstest/kas.sh
+deleted file mode 100755
+--- a/cmd/fipstest/kas.sh
++++ /dev/null
+@@ -1,84 +0,0 @@
+-#!/bin/sh
+-# 
+-# This Source Code Form is subject to the terms of the Mozilla Public
+-# License, v. 2.0. If a copy of the MPL was not distributed with this
+-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+-#
+-# A Bourne shell script for running the NIST DSA Validation System
+-#
+-# Before you run the script, set your PATH, LD_LIBRARY_PATH, ... environment
+-# variables appropriately so that the fipstest command and the NSPR and NSS
+-# shared libraries/DLLs are on the search path.  Then run this script in the
+-# directory where the REQUEST (.req) files reside.  The script generates the
+-# RESPONSE (.rsp) files in the same directory.
+-BASEDIR=${1-.}
+-TESTDIR=${BASEDIR}/KAS
+-COMMAND=${2-run}
+-REQDIR=${TESTDIR}/req
+-RSPDIR=${TESTDIR}/resp
+-
+-
+-#
+-if [ ${COMMAND} = "verify" ]; then
+-#
+-# need verify for KAS tests
+-
+-# verify generated keys
+-#    name=KeyPair
+-#    echo ">>>>>  $name"
+-#    fipstest dsa keyver ${RSPDIR}/$name.rsp | grep ^Result.=.F
+-# verify generated pqg values
+-#    name=PQGGen
+-#    echo ">>>>>  $name"
+-#    fipstest dsa pqgver ${RSPDIR}/$name.rsp | grep ^Result.=.F
+-# verify PQGVer with known answer
+-#    sh ./validate1.sh ${TESTDIR} PQGVer.req ' ' '-e /^Result.=.F/s;.(.*);; -e /^Result.=.P/s;.(.*);;'
+-# verify signatures
+-#    name=SigGen
+-#    echo ">>>>>  $name"
+-#    fipstest dsa sigver ${RSPDIR}/$name.rsp | grep ^Result.=.F
+-# verify SigVer with known answer
+-#    sh ./validate1.sh ${TESTDIR} SigVer.req ' ' '-e /^X.=/d -e /^Result.=.F/s;.(.*);;'
+-    exit 0
+-fi
+-
+-request=KASFunctionTest_ECCEphemeralUnified_NOKC_ZZOnly_init.req
+-response=`echo $request | sed -e "s/req/rsp/"`
+-echo $request $response
+-fipstest ecdh init-func ${REQDIR}/$request > ${RSPDIR}/$response
+-
+-request=KASFunctionTest_ECCEphemeralUnified_NOKC_ZZOnly_resp.req
+-response=`echo $request | sed -e "s/req/rsp/"`
+-echo $request $response
+-fipstest ecdh resp-func ${REQDIR}/$request > ${RSPDIR}/$response
+-
+-request=KASValidityTest_ECCEphemeralUnified_NOKC_ZZOnly_init.req
+-response=`echo $request | sed -e "s/req/rsp/"`
+-echo $request $response
+-fipstest ecdh init-verify ${REQDIR}/$request > ${RSPDIR}/$response
+-
+-request=KASValidityTest_ECCEphemeralUnified_NOKC_ZZOnly_resp.req
+-response=`echo $request | sed -e "s/req/rsp/"`
+-echo $request $response
+-fipstest ecdh resp-verify ${REQDIR}/$request > ${RSPDIR}/$response
+-
+-request=KASFunctionTest_FFCEphem_NOKC_ZZOnly_init.req
+-response=`echo $request | sed -e "s/req/rsp/"`
+-echo $request $response
+-fipstest dh init-func ${REQDIR}/$request > ${RSPDIR}/$response
+-
+-request=KASFunctionTest_FFCEphem_NOKC_ZZOnly_resp.req
+-response=`echo $request | sed -e "s/req/rsp/"`
+-echo $request $response
+-fipstest dh resp-func ${REQDIR}/$request > ${RSPDIR}/$response
+-
+-request=KASValidityTest_FFCEphem_NOKC_ZZOnly_init.req
+-response=`echo $request | sed -e "s/req/rsp/"`
+-echo $request $response
+-fipstest dh init-verify ${REQDIR}/$request > ${RSPDIR}/$response
+-
+-request=KASValidityTest_FFCEphem_NOKC_ZZOnly_resp.req
+-response=`echo $request | sed -e "s/req/rsp/"`
+-echo $request $response
+-fipstest dh resp-verify ${REQDIR}/$request > ${RSPDIR}/$response
+-
+diff --git a/cmd/fipstest/rng.sh b/cmd/fipstest/rng.sh
+deleted file mode 100644
+--- a/cmd/fipstest/rng.sh
++++ /dev/null
+@@ -1,34 +0,0 @@
+-#!/bin/sh
+-# 
+-# This Source Code Form is subject to the terms of the Mozilla Public
+-# License, v. 2.0. If a copy of the MPL was not distributed with this
+-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+-#
+-# A Bourne shell script for running the NIST RNG Validation Suite
+-#
+-# Before you run the script, set your PATH, LD_LIBRARY_PATH, ... environment
+-# variables appropriately so that the fipstest command and the NSPR and NSS
+-# shared libraries/DLLs are on the search path.  Then run this script in the
+-# directory where the REQUEST (.req) files reside.  The script generates the
+-# RESPONSE (.rsp) files in the same directory.
+-BASEDIR=${1-.}
+-TESTDIR=${BASEDIR}/DRBG800-90A
+-COMMAND=${2-run}
+-REQDIR=${TESTDIR}/req
+-RSPDIR=${TESTDIR}/resp
+-
+-drbg_requests="
+-Hash_DRBG.req
+-"
+-
+-if [ ${COMMAND} = "verify" ]; then
+-    for request in $drbg_requests; do
+-	sh ./validate1.sh ${TESTDIR} $request
+-    done
+-    exit 0
+-fi
+-for request in $drbg_requests; do
+-    response=`echo $request | sed -e "s/req/rsp/"`
+-    echo $request $response
+-    fipstest drbg ${REQDIR}/$request > ${RSPDIR}/$response
+-done
+diff --git a/cmd/fipstest/rsa.sh b/cmd/fipstest/rsa.sh
+deleted file mode 100644
+--- a/cmd/fipstest/rsa.sh
++++ /dev/null
+@@ -1,50 +0,0 @@
+-#!/bin/sh
+-# 
+-# This Source Code Form is subject to the terms of the Mozilla Public
+-# License, v. 2.0. If a copy of the MPL was not distributed with this
+-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+-#
+-# A Bourne shell script for running the NIST RSA Validation System
+-#
+-# Before you run the script, set your PATH, LD_LIBRARY_PATH, ... environment
+-# variables appropriately so that the fipstest command and the NSPR and NSS
+-# shared libraries/DLLs are on the search path.  Then run this script in the
+-# directory where the REQUEST (.req) files reside.  The script generates the
+-# RESPONSE (.rsp) files in the same directory.
+-BASEDIR=${1-.}
+-TESTDIR=${BASEDIR}/RSA2
+-COMMAND=${2-run}
+-REQDIR=${TESTDIR}/req
+-RSPDIR=${TESTDIR}/resp
+-
+-if [ ${COMMAND} = "verify" ]; then
+-#verify the signatures. The fax file does not have any known answers, so
+-#use our own verify function.
+-    name=SigGen15_186-3
+-    echo ">>>>>  $name"
+-    fipstest rsa sigver ${RSPDIR}/$name.rsp | grep ^Result.=.F
+-#    fipstest rsa sigver ${REQDIR}/SigVer15_186-3.req | grep ^Result.=.F
+-#The Fax file has the private exponent and the salt value, remove it
+-#also remove the false reason
+-    sh ./validate1.sh ${TESTDIR} SigVer15_186-3.req ' ' '-e /^SaltVal/d -e/^d.=/d -e /^p.=/d -e /^q.=/d -e /^EM.with/d -e /^Result.=.F/s;.(.*);;'
+-#
+-# currently don't have a way to verify the RSA keygen
+-#
+-    exit 0
+-fi
+-
+-request=SigGen15_186-3.req
+-response=`echo $request | sed -e "s/req/rsp/"`
+-echo $request $response
+-fipstest rsa siggen ${REQDIR}/$request > ${RSPDIR}/$response
+-
+-request=SigVer15_186-3.req
+-response=`echo $request | sed -e "s/req/rsp/"`
+-echo $request $response
+-fipstest rsa sigver ${REQDIR}/$request > ${RSPDIR}/$response
+-
+-#request=KeyGen_186-3.req
+-request=KeyGen_RandomProbablyPrime3_3.req
+-response=`echo $request | sed -e "s/req/rsp/"`
+-echo $request $response
+-fipstest rsa keypair ${REQDIR}/$request > ${RSPDIR}/$response
+diff --git a/cmd/fipstest/runtest.sh b/cmd/fipstest/runtest.sh
+deleted file mode 100644
+--- a/cmd/fipstest/runtest.sh
++++ /dev/null
+@@ -1,14 +0,0 @@
+-#!/bin/sh
+-# 
+-# This Source Code Form is subject to the terms of the Mozilla Public
+-# License, v. 2.0. If a copy of the MPL was not distributed with this
+-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+-#
+-TESTDIR=${1-.}
+-COMMAND=${2-run}
+-TESTS="aes aesgcm dsa ecdsa hmac kas tls rng rsa sha tdea"
+-for i in $TESTS
+-do
+-    echo "********************Running $i tests"
+-    sh ./${i}.sh ${TESTDIR} ${COMMAND}
+-done
+diff --git a/cmd/fipstest/sha.sh b/cmd/fipstest/sha.sh
+deleted file mode 100644
+--- a/cmd/fipstest/sha.sh
++++ /dev/null
+@@ -1,66 +0,0 @@
+-#!/bin/sh
+-# 
+-# This Source Code Form is subject to the terms of the Mozilla Public
+-# License, v. 2.0. If a copy of the MPL was not distributed with this
+-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+-#
+-# A Bourne shell script for running the NIST SHA Algorithm Validation Suite
+-#
+-# Before you run the script, set your PATH, LD_LIBRARY_PATH, ... environment
+-# variables appropriately so that the fipstest command and the NSPR and NSS
+-# shared libraries/DLLs are on the search path.  Then run this script in the
+-# directory where the REQUEST (.req) files reside.  The script generates the
+-# RESPONSE (.rsp) files in the same directory.
+-BASEDIR=${1-.}
+-TESTDIR=${BASEDIR}/SHA
+-COMMAND=${2-run}
+-REQDIR=${TESTDIR}/req
+-RSPDIR=${TESTDIR}/resp
+-                               
+-sha_ShortMsg_requests="
+-SHA1ShortMsg.req
+-SHA224ShortMsg.req
+-SHA256ShortMsg.req
+-SHA384ShortMsg.req
+-SHA512ShortMsg.req
+-"
+-
+-sha_LongMsg_requests="
+-SHA1LongMsg.req
+-SHA224LongMsg.req
+-SHA256LongMsg.req
+-SHA384LongMsg.req
+-SHA512LongMsg.req
+-"
+-
+-sha_Monte_requests="
+-SHA1Monte.req
+-SHA224Monte.req
+-SHA256Monte.req
+-SHA384Monte.req
+-SHA512Monte.req
+-"
+-
+-if [ ${COMMAND} = "verify" ]; then
+-    for request in $sha_ShortMsg_requests $sha_LongMsg_requests $sha_Monte_requests; do
+-	sh ./validate1.sh ${TESTDIR} $request
+-    done
+-    exit 0
+-fi
+-
+-for request in $sha_ShortMsg_requests; do
+-    response=`echo $request | sed -e "s/req/rsp/"`
+-    echo $request $response
+-    fipstest sha ${REQDIR}/$request > ${RSPDIR}/$response
+-done
+-for request in $sha_LongMsg_requests; do
+-    response=`echo $request | sed -e "s/req/rsp/"`
+-    echo $request $response
+-    fipstest sha ${REQDIR}/$request > ${RSPDIR}/$response
+-done
+-for request in $sha_Monte_requests; do
+-    response=`echo $request | sed -e "s/req/rsp/"`
+-    echo $request $response
+-    fipstest sha ${REQDIR}/$request > ${RSPDIR}/$response
+-done
+-
+diff --git a/cmd/fipstest/tdea.sh b/cmd/fipstest/tdea.sh
+deleted file mode 100644
+--- a/cmd/fipstest/tdea.sh
++++ /dev/null
+@@ -1,106 +0,0 @@
+-#!/bin/sh
+-# 
+-# This Source Code Form is subject to the terms of the Mozilla Public
+-# License, v. 2.0. If a copy of the MPL was not distributed with this
+-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+-#
+-# A Bourne shell script for running the NIST tdea Algorithm Validation Suite
+-#
+-# Before you run the script, set your PATH, LD_LIBRARY_PATH, ... environment
+-# variables appropriately so that the fipstest command and the NSPR and NSS
+-# shared libraries/DLLs are on the search path.  Then run this script in the
+-# directory where the REQUEST (.req) files reside.  The script generates the
+-# RESPONSE (.rsp) files in the same directory.
+-
+-BASEDIR=${1-.}
+-TESTDIR=${BASEDIR}/TDES
+-COMMAND=${2-run}
+-REQDIR=${TESTDIR}/req
+-RSPDIR=${TESTDIR}/resp
+-
+-#CBC_Known_Answer_tests
+-#Initial Permutation KAT  
+-#Permutation Operation KAT 
+-#Subsitution Table KAT    
+-#Variable Key KAT         
+-#Variable PlainText KAT   
+-cbc_kat_requests="
+-TCBCinvperm.req   
+-TCBCpermop.req    
+-TCBCsubtab.req    
+-TCBCvarkey.req    
+-TCBCvartext.req   
+-"
+-
+-#CBC Monte Carlo KATs
+-cbc_monte_requests="
+-TCBCMonte1.req
+-TCBCMonte2.req
+-TCBCMonte3.req
+-"
+-#Multi-block Message KATs
+-cbc_mmt_requests="
+-TCBCMMT1.req
+-TCBCMMT2.req
+-TCBCMMT3.req
+-"
+-
+-ecb_kat_requests="
+-TECBinvperm.req   
+-TECBpermop.req    
+-TECBsubtab.req    
+-TECBvarkey.req    
+-TECBvartext.req   
+-"
+-
+-ecb_monte_requests="
+-TECBMonte1.req
+-TECBMonte2.req
+-TECBMonte3.req
+-"
+-
+-ecb_mmt_requests="
+-TECBMMT1.req
+-TECBMMT2.req
+-TECBMMT3.req
+-"
+-
+-
+-if [ ${COMMAND} = "verify" ]; then
+-    for request in $cbc_kat_requests $cbc_monte_requests $cbc_mmt_requests $ecb_kat_requests $ecb_monte_requests $ecb_mmt_requests
+-    do
+-	sh ./validate1.sh ${TESTDIR} $request "-e /^NumKeys/d"
+-    done
+-    exit 0
+-fi
+-
+-for request in $cbc_kat_requests; do
+-    response=`echo $request | sed -e "s/req/rsp/"`
+-    echo $request $response
+-    fipstest tdea kat cbc ${REQDIR}/$request > ${RSPDIR}/$response
+-done
+-for request in $cbc_mmt_requests; do
+-    response=`echo $request | sed -e "s/req/rsp/"`
+-    echo $request $response
+-    fipstest tdea mmt cbc ${REQDIR}/$request > ${RSPDIR}/$response
+-done
+-for request in $cbc_monte_requests; do
+-    response=`echo $request | sed -e "s/req/rsp/"`
+-    echo $request $response
+-    fipstest tdea mct cbc ${REQDIR}/$request > ${RSPDIR}/$response
+-done
+-for request in $ecb_kat_requests; do
+-    response=`echo $request | sed -e "s/req/rsp/"`
+-    echo $request $response
+-    fipstest tdea kat ecb ${REQDIR}/$request > ${RSPDIR}/$response
+-done
+-for request in $ecb_mmt_requests; do
+-    response=`echo $request | sed -e "s/req/rsp/"`
+-    echo $request $response
+-    fipstest tdea mmt ecb ${REQDIR}/$request > ${RSPDIR}/$response
+-done
+-for request in $ecb_monte_requests; do
+-    response=`echo $request | sed -e "s/req/rsp/"`
+-    echo $request $response
+-    fipstest tdea mct ecb ${REQDIR}/$request > ${RSPDIR}/$response
+-done
+diff --git a/cmd/fipstest/tls.sh b/cmd/fipstest/tls.sh
+deleted file mode 100644
+--- a/cmd/fipstest/tls.sh
++++ /dev/null
+@@ -1,34 +0,0 @@
+-#!/bin/sh
+-# 
+-# This Source Code Form is subject to the terms of the Mozilla Public
+-# License, v. 2.0. If a copy of the MPL was not distributed with this
+-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+-#
+-# A Bourne shell script for running the NIST RNG Validation Suite
+-#
+-# Before you run the script, set your PATH, LD_LIBRARY_PATH, ... environment
+-# variables appropriately so that the fipstest command and the NSPR and NSS
+-# shared libraries/DLLs are on the search path.  Then run this script in the
+-# directory where the REQUEST (.req) files reside.  The script generates the
+-# RESPONSE (.rsp) files in the same directory.
+-BASEDIR=${1-.}
+-TESTDIR=${BASEDIR}/KDF135
+-COMMAND=${2-run}
+-REQDIR=${TESTDIR}/req
+-RSPDIR=${TESTDIR}/resp
+-
+-drbg_requests="
+-tls.req
+-"
+-
+-if [ ${COMMAND} = "verify" ]; then
+-    for request in $drbg_requests; do
+-	sh ./validate1.sh ${TESTDIR} $request
+-    done
+-    exit 0
+-fi
+-for request in $drbg_requests; do
+-    response=`echo $request | sed -e "s/req/rsp/"`
+-    echo $request $response
+-    fipstest tls ${REQDIR}/$request > ${RSPDIR}/$response
+-done
+diff --git a/cmd/fipstest/validate.sh b/cmd/fipstest/validate.sh
+deleted file mode 100644
+--- a/cmd/fipstest/validate.sh
++++ /dev/null
+@@ -1,7 +0,0 @@
+-#!/bin/sh
+-# 
+-# This Source Code Form is subject to the terms of the Mozilla Public
+-# License, v. 2.0. If a copy of the MPL was not distributed with this
+-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+-#
+-sh ./runtest.sh ${1-.} verify
+diff --git a/cmd/fipstest/validate1.sh b/cmd/fipstest/validate1.sh
+deleted file mode 100644
+--- a/cmd/fipstest/validate1.sh
++++ /dev/null
+@@ -1,30 +0,0 @@
+-#!/bin/sh
+-# 
+-# This Source Code Form is subject to the terms of the Mozilla Public
+-# License, v. 2.0. If a copy of the MPL was not distributed with this
+-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+-#
+-# Validate1.sh is a helper shell script that each of the base test shell 
+-# scripts call to help validate that the generated response (response) 
+-# matches the known answer response (fax). Sometimes (depending on the 
+-# individual tests) there are extraneous output in either or both response 
+-# and fax files. These allow the caller to pass in additional sed commands 
+-# to clear out those extraneous outputs before we compare the two files.
+-# The sed line always clears out Windows line endings, replaces tabs with 
+-# spaces, and removed comments.
+-#
+-TESTDIR=${1-.}
+-request=${2}
+-extraneous_response=${3}
+-extraneous_fax=${4}
+-name=`basename $request .req`
+-echo ">>>>>  $name"
+-sed -e 's;;;g' -e 's;	; ;g' -e '/^#/d' $extraneous_response ${TESTDIR}/resp/${name}.rsp > /tmp/y1
+-# if we didn't generate any output, flag that as an error 
+-size=`sum /tmp/y1 | awk '{ print $NF }'`
+-if [ $size -eq 0 ]; then
+-   echo "${TESTDIR}/resp/${name}.rsp: empty"
+-   exit 1;
+-fi
+-sed -e 's;;;g' -e 's;	; ;g' -e '/^#/d' $extraneous_fax ${TESTDIR}/fax/${name}.fax > /tmp/y2
+-diff -i -w -B /tmp/y1 /tmp/y2
+diff --git a/lib/softoken/fipstest.c b/lib/softoken/fipstest.c
+--- a/lib/softoken/fipstest.c
++++ b/lib/softoken/fipstest.c
+@@ -7,16 +7,17 @@
+ 
+ #ifndef NSS_FIPS_DISABLED
+ #include "seccomon.h"
+ #include "blapi.h"
+ #include "softoken.h"
+ #include "lowkeyi.h"
+ #include "secoid.h"
+ #include "secerr.h"
++#include "pkcs11i.h"
+ 
+ /*
+  * different platforms have different ways of calling and initial entry point
+  * when the dll/.so is loaded. Most platforms support either a posix pragma
+  * or the GCC attribute. Some platforms suppor a pre-defined name, and some
+  * platforms have a link line way of invoking this function.
+  */
+ 
+@@ -621,16 +622,20 @@ sftk_startup_tests(void)
+         return;
+     }
+     if (!BLAPI_SHVerify(libraryName,
+                         (PRFuncPtr)&sftk_fips_RSA_PowerUpSelfTest)) {
+         /* something is wrong with the library, fail without enabling
+          * the token */
+         return;
+     }
++    rv = sftk_fips_IKE_PowerUpSelfTests();
++    if (rv != SECSuccess) {
++        return;
++    }
+     sftk_self_tests_success = PR_TRUE;
+ }
+ 
+ /*
+  * this is called from nsc_Common_Initizialize entry points that gates access
+  * to * all other pkcs11 functions. This prevents softoken operation if our
+  * power on selftest failed.
+  */
+diff --git a/lib/softoken/manifest.mn b/lib/softoken/manifest.mn
+--- a/lib/softoken/manifest.mn
++++ b/lib/softoken/manifest.mn
+@@ -41,16 +41,17 @@ CSRCS = \
+ 	lowpbe.c   \
+ 	padbuf.c   \
+ 	pkcs11.c   \
+ 	pkcs11c.c  \
+ 	pkcs11u.c  \
+ 	sdb.c  \
+ 	sftkdb.c  \
+ 	sftkhmac.c  \
++	sftkike.c  \
+ 	sftkpars.c  \
+ 	sftkpwd.c  \
+ 	softkver.c  \
+ 	tlsprf.c   \
+ 	jpakesftk.c \
+ 	$(NULL)
+ 
+ ifdef SQLITE_UNSAFE_THREADS
+diff --git a/lib/softoken/pkcs11.c b/lib/softoken/pkcs11.c
+--- a/lib/softoken/pkcs11.c
++++ b/lib/softoken/pkcs11.c
+@@ -323,16 +323,18 @@ static const struct mechanismList mechan
+     { CKM_AES_ECB, { 16, 32, CKF_EN_DE_WR_UN }, PR_TRUE },
+     { CKM_AES_CBC, { 16, 32, CKF_EN_DE_WR_UN }, PR_TRUE },
+     { CKM_AES_MAC, { 16, 32, CKF_SN_VR }, PR_TRUE },
+     { CKM_AES_MAC_GENERAL, { 16, 32, CKF_SN_VR }, PR_TRUE },
+     { CKM_AES_CBC_PAD, { 16, 32, CKF_EN_DE_WR_UN }, PR_TRUE },
+     { CKM_AES_CTS, { 16, 32, CKF_EN_DE }, PR_TRUE },
+     { CKM_AES_CTR, { 16, 32, CKF_EN_DE }, PR_TRUE },
+     { CKM_AES_GCM, { 16, 32, CKF_EN_DE }, PR_TRUE },
++    { CKM_AES_XCBC_MAC_96, { 12, 12, CKF_SN_VR }, PR_TRUE },
++    { CKM_AES_XCBC_MAC, { 16, 16, CKF_SN_VR }, PR_TRUE },
+     /* ------------------------- Camellia Operations --------------------- */
+     { CKM_CAMELLIA_KEY_GEN, { 16, 32, CKF_GENERATE }, PR_TRUE },
+     { CKM_CAMELLIA_ECB, { 16, 32, CKF_EN_DE_WR_UN }, PR_TRUE },
+     { CKM_CAMELLIA_CBC, { 16, 32, CKF_EN_DE_WR_UN }, PR_TRUE },
+     { CKM_CAMELLIA_MAC, { 16, 32, CKF_SN_VR }, PR_TRUE },
+     { CKM_CAMELLIA_MAC_GENERAL, { 16, 32, CKF_SN_VR }, PR_TRUE },
+     { CKM_CAMELLIA_CBC_PAD, { 16, 32, CKF_EN_DE_WR_UN }, PR_TRUE },
+     /* ------------------------- SEED Operations --------------------------- */
+@@ -504,17 +506,21 @@ static const struct mechanismList mechan
+     { CKM_NSS_JPAKE_ROUND2_SHA384, { 0, 0, CKF_DERIVE }, PR_TRUE },
+     { CKM_NSS_JPAKE_ROUND2_SHA512, { 0, 0, CKF_DERIVE }, PR_TRUE },
+     { CKM_NSS_JPAKE_FINAL_SHA1, { 0, 0, CKF_DERIVE }, PR_TRUE },
+     { CKM_NSS_JPAKE_FINAL_SHA256, { 0, 0, CKF_DERIVE }, PR_TRUE },
+     { CKM_NSS_JPAKE_FINAL_SHA384, { 0, 0, CKF_DERIVE }, PR_TRUE },
+     { CKM_NSS_JPAKE_FINAL_SHA512, { 0, 0, CKF_DERIVE }, PR_TRUE },
+     /* -------------------- Constant Time TLS MACs ----------------------- */
+     { CKM_NSS_HMAC_CONSTANT_TIME, { 0, 0, CKF_DIGEST }, PR_TRUE },
+-    { CKM_NSS_SSL3_MAC_CONSTANT_TIME, { 0, 0, CKF_DIGEST }, PR_TRUE }
++    { CKM_NSS_SSL3_MAC_CONSTANT_TIME, { 0, 0, CKF_DIGEST }, PR_TRUE },
++    /* --------------------IPSEC ----------------------- */
++    { CKM_NSS_IKE_PRF_PLUS_DERIVE, { 8, 255 * 64, CKF_DERIVE }, PR_TRUE },
++    { CKM_NSS_IKE_PRF_DERIVE, { 8, 64, CKF_DERIVE }, PR_TRUE },
++    { CKM_NSS_IKE1_PRF_DERIVE, { 8, 64, CKF_DERIVE }, PR_TRUE }
+ };
+ static const CK_ULONG mechanismCount = sizeof(mechanisms) / sizeof(mechanisms[0]);
+ 
+ /* sigh global so fipstokn can read it */
+ PRBool nsc_init = PR_FALSE;
+ 
+ #if defined(CHECK_FORK_PTHREAD) || defined(CHECK_FORK_MIXED)
+ 
+diff --git a/lib/softoken/pkcs11c.c b/lib/softoken/pkcs11c.c
+--- a/lib/softoken/pkcs11c.c
++++ b/lib/softoken/pkcs11c.c
+@@ -94,49 +94,16 @@ sftk_Space(void *data, PRBool freeit)
+     PORT_Free(data);
+ }
+ 
+ /*
+  * map all the SEC_ERROR_xxx error codes that may be returned by freebl
+  * functions to CKR_xxx.  return CKR_DEVICE_ERROR by default for backward
+  * compatibility.
+  */
+-static CK_RV
+-sftk_MapCryptError(int error)
+-{
+-    switch (error) {
+-        case SEC_ERROR_INVALID_ARGS:
+-        case SEC_ERROR_BAD_DATA: /* MP_RANGE gets mapped to this */
+-            return CKR_ARGUMENTS_BAD;
+-        case SEC_ERROR_INPUT_LEN:
+-            return CKR_DATA_LEN_RANGE;
+-        case SEC_ERROR_OUTPUT_LEN:
+-            return CKR_BUFFER_TOO_SMALL;
+-        case SEC_ERROR_LIBRARY_FAILURE:
+-            return CKR_GENERAL_ERROR;
+-        case SEC_ERROR_NO_MEMORY:
+-            return CKR_HOST_MEMORY;
+-        case SEC_ERROR_BAD_SIGNATURE:
+-            return CKR_SIGNATURE_INVALID;
+-        case SEC_ERROR_INVALID_KEY:
+-            return CKR_KEY_SIZE_RANGE;
+-        case SEC_ERROR_BAD_KEY:        /* an EC public key that fails validation */
+-            return CKR_KEY_SIZE_RANGE; /* the closest error code */
+-        case SEC_ERROR_UNSUPPORTED_EC_POINT_FORM:
+-            return CKR_TEMPLATE_INCONSISTENT;
+-        case SEC_ERROR_UNSUPPORTED_KEYALG:
+-            return CKR_MECHANISM_INVALID;
+-        case SEC_ERROR_UNSUPPORTED_ELLIPTIC_CURVE:
+-            return CKR_DOMAIN_PARAMS_INVALID;
+-        /* key pair generation failed after max number of attempts */
+-        case SEC_ERROR_NEED_RANDOM:
+-            return CKR_FUNCTION_FAILED;
+-    }
+-    return CKR_DEVICE_ERROR;
+-}
+ 
+ /* used by Decrypt and UnwrapKey (indirectly) */
+ static CK_RV
+ sftk_MapDecryptError(int error)
+ {
+     switch (error) {
+         case SEC_ERROR_BAD_DATA:
+             return CKR_ENCRYPTED_DATA_INVALID;
+@@ -2075,19 +2042,22 @@ sftk_InitCBCMac(CK_SESSION_HANDLE hSessi
+     CK_MECHANISM cbc_mechanism;
+     CK_ULONG mac_bytes = SFTK_INVALID_MAC_SIZE;
+     CK_RC2_CBC_PARAMS rc2_params;
+ #if NSS_SOFTOKEN_DOES_RC5
+     CK_RC5_CBC_PARAMS rc5_params;
+     CK_RC5_MAC_GENERAL_PARAMS *rc5_mac;
+ #endif
+     unsigned char ivBlock[SFTK_MAX_BLOCK_SIZE];
++    unsigned char k2[SFTK_MAX_BLOCK_SIZE];
++    unsigned char k3[SFTK_MAX_BLOCK_SIZE];
+     SFTKSessionContext *context;
+     CK_RV crv;
+     unsigned int blockSize;
++    PRBool isXCBC = PR_FALSE;
+ 
+     switch (pMechanism->mechanism) {
+         case CKM_RC2_MAC_GENERAL:
+             if (!pMechanism->pParameter) {
+                 return CKR_MECHANISM_PARAM_INVALID;
+             }
+             mac_bytes =
+                 ((CK_RC2_MAC_GENERAL_PARAMS *)pMechanism->pParameter)->ulMacLength;
+@@ -2181,43 +2151,82 @@ sftk_InitCBCMac(CK_SESSION_HANDLE hSessi
+         /* fall through */
+         case CKM_AES_MAC:
+             blockSize = 16;
+             PORT_Memset(ivBlock, 0, blockSize);
+             cbc_mechanism.mechanism = CKM_AES_CBC;
+             cbc_mechanism.pParameter = &ivBlock;
+             cbc_mechanism.ulParameterLen = blockSize;
+             break;
++        case CKM_AES_XCBC_MAC_96:
++        case CKM_AES_XCBC_MAC:
++            /* The only difference between CKM_AES_XCBC_MAC
++             * and CKM_AES_XCBC_MAC_96 is the size of the returned mac. */
++            mac_bytes = pMechanism->mechanism == CKM_AES_XCBC_MAC_96 ? 12 : 16;
++            blockSize = 16;
++            PORT_Memset(ivBlock, 0, blockSize);
++            cbc_mechanism.mechanism = CKM_AES_CBC;
++            cbc_mechanism.pParameter = &ivBlock;
++            cbc_mechanism.ulParameterLen = blockSize;
++            /* is XCBC requires extra processing at the end of the operation */
++            isXCBC = PR_TRUE;
++            /* The input key is used to generate k1, k2, and k3. k2 and k3
++             * are used at the end in the pad step. k1 replaces the input
++             * key in the aes cbc mac */
++            crv = sftk_aes_xcbc_new_keys(hSession, hKey, &hKey, k2, k3);
++            if (crv != CKR_OK) {
++                return crv;
++            }
++            break;
+         default:
+             return CKR_FUNCTION_NOT_SUPPORTED;
+     }
+ 
+     /* if MAC size is externally supplied, it should be checked.
+      */
+     if (mac_bytes == SFTK_INVALID_MAC_SIZE)
+         mac_bytes = blockSize >> 1;
+     else {
+-        if (mac_bytes > blockSize)
+-            return CKR_MECHANISM_PARAM_INVALID;
++        if (mac_bytes > blockSize) {
++            crv = CKR_MECHANISM_PARAM_INVALID;
++            goto fail;
++        }
+     }
+ 
+     crv = sftk_CryptInit(hSession, &cbc_mechanism, hKey,
+                          CKA_ENCRYPT, /* CBC mech is able to ENCRYPT, not SIGN/VERIFY */
+                          keyUsage, contextType, PR_TRUE);
+     if (crv != CKR_OK)
+-        return crv;
++        goto fail;
+     crv = sftk_GetContext(hSession, &context, contextType, PR_TRUE, NULL);
+ 
+     /* this shouldn't happen! */
+     PORT_Assert(crv == CKR_OK);
+     if (crv != CKR_OK)
+-        return crv;
++        goto fail;
+     context->blockSize = blockSize;
+     context->macSize = mac_bytes;
++    context->isXCBC = isXCBC;
++    if (isXCBC) {
++        /* save the xcbc specific parameters */
++        PORT_Memcpy(context->k2, k2, blockSize);
++        PORT_Memcpy(context->k3, k3, blockSize);
++        PORT_Memset(k2, 0, blockSize);
++        PORT_Memset(k3, 0, blockSize);
++        /* get rid of the temp key now that the context has been created */
++        NSC_DestroyObject(hSession, hKey);
++    }
+     return CKR_OK;
++fail:
++    if (isXCBC) {
++        PORT_Memset(k2, 0, blockSize);
++        PORT_Memset(k3, 0, blockSize);
++        NSC_DestroyObject(hSession, hKey); /* get rid of our temp key */
++    }
++    return crv;
+ }
+ 
+ /*
+  * encode RSA PKCS #1 Signature data before signing...
+  */
+ static SECStatus
+ sftk_RSAHashSign(SFTKHashSignInfo *info, unsigned char *sig,
+                  unsigned int *sigLen, unsigned int maxLen,
+@@ -2823,16 +2832,23 @@ sftk_MACBlock(SFTKSessionContext *ctx, v
+  *
+  *  Call once, then terminate MACing operation.
+  */
+ static CK_RV
+ sftk_MACFinal(SFTKSessionContext *ctx)
+ {
+     unsigned int padLen = ctx->padDataLength;
+     /* pad and proceed the residual */
++    if (ctx->isXCBC) {
++        CK_RV crv = sftk_xcbc_mac_pad(ctx->padBuf, padLen, ctx->blockSize,
++                                      ctx->k2, ctx->k3);
++        if (crv != CKR_OK)
++            return crv;
++        return sftk_MACBlock(ctx, ctx->padBuf);
++    }
+     if (padLen) {
+         /* shd clr ctx->padLen to make sftk_MACFinal idempotent */
+         PORT_Memset(ctx->padBuf + padLen, 0, ctx->blockSize - padLen);
+         return sftk_MACBlock(ctx, ctx->padBuf);
+     } else
+         return CKR_OK;
+ }
+ 
+@@ -2861,31 +2877,31 @@ sftk_MACUpdate(CK_SESSION_HANDLE hSessio
+ 
+         unsigned int blkSize = context->blockSize;
+         unsigned char *residual = /* free room in context->padBuf */
+             context->padBuf + context->padDataLength;
+         unsigned int minInput = /* min input for MACing at least one block */
+             blkSize - context->padDataLength;
+ 
+         /* not enough data even for one block */
+-        if (ulPartLen < minInput) {
++        if (ulPartLen <= minInput) {
+             PORT_Memcpy(residual, pPart, ulPartLen);
+             context->padDataLength += ulPartLen;
+             goto cleanup;
+         }
+         /* MACing residual */
+         if (context->padDataLength) {
+             PORT_Memcpy(residual, pPart, minInput);
+             ulPartLen -= minInput;
+             pPart += minInput;
+             if (CKR_OK != (crv = sftk_MACBlock(context, context->padBuf)))
+                 goto terminate;
+         }
+         /* MACing full blocks */
+-        while (ulPartLen >= blkSize) {
++        while (ulPartLen > blkSize) {
+             if (CKR_OK != (crv = sftk_MACBlock(context, pPart)))
+                 goto terminate;
+             ulPartLen -= blkSize;
+             pPart += blkSize;
+         }
+         /* save the residual */
+         if ((context->padDataLength = ulPartLen))
+             PORT_Memcpy(context->padBuf, pPart, ulPartLen);
+@@ -6513,16 +6529,55 @@ NSC_DeriveKey(CK_SESSION_HANDLE hSession
+         if (att == NULL) {
+             sftk_FreeObject(key);
+             sftk_FreeObject(sourceKey);
+             return CKR_KEY_HANDLE_INVALID;
+         }
+     }
+ 
+     switch (mechanism) {
++        case CKM_NSS_IKE_PRF_DERIVE:
++            if (pMechanism->ulParameterLen !=
++                               sizeof(CK_NSS_IKE_PRF_DERIVE_PARAMS)) {
++                crv = CKR_MECHANISM_PARAM_INVALID;
++                break;
++            }
++            crv = sftk_ike_prf(hSession, att,
++                               (CK_NSS_IKE_PRF_DERIVE_PARAMS *)pMechanism->pParameter, key);
++            break;
++        case CKM_NSS_IKE1_PRF_DERIVE:
++            if (pMechanism->ulParameterLen !=
++                               sizeof(CK_NSS_IKE1_PRF_DERIVE_PARAMS)) {
++                crv = CKR_MECHANISM_PARAM_INVALID;
++                break;
++            }
++            crv = sftk_ike1_prf(hSession, att,
++                                (CK_NSS_IKE1_PRF_DERIVE_PARAMS *)pMechanism->pParameter,
++                                key, keySize);
++            break;
++        case CKM_NSS_IKE1_APP_B_PRF_DERIVE:
++            if (pMechanism->ulParameterLen !=
++                               sizeof(CK_MECHANISM_TYPE)) {
++                crv = CKR_MECHANISM_PARAM_INVALID;
++                break;
++            }
++            crv = sftk_ike1_appendix_b_prf(hSession, att,
++                                (CK_MECHANISM_TYPE *)pMechanism->pParameter,
++                                key, keySize);
++            break;
++        case CKM_NSS_IKE_PRF_PLUS_DERIVE:
++            if (pMechanism->ulParameterLen !=
++                               sizeof(CK_NSS_IKE_PRF_PLUS_DERIVE_PARAMS)) {
++                crv = CKR_MECHANISM_PARAM_INVALID;
++                break;
++            }
++            crv = sftk_ike_prf_plus(hSession, att,
++                                    (CK_NSS_IKE_PRF_PLUS_DERIVE_PARAMS *)pMechanism->pParameter,
++                                    key, keySize);
++            break;
+         /*
+          * generate the master secret
+          */
+         case CKM_TLS12_MASTER_KEY_DERIVE:
+         case CKM_TLS12_MASTER_KEY_DERIVE_DH:
+         case CKM_NSS_TLS_MASTER_KEY_DERIVE_SHA256:
+         case CKM_NSS_TLS_MASTER_KEY_DERIVE_DH_SHA256:
+         case CKM_TLS_MASTER_KEY_DERIVE:
+diff --git a/lib/softoken/pkcs11i.h b/lib/softoken/pkcs11i.h
+--- a/lib/softoken/pkcs11i.h
++++ b/lib/softoken/pkcs11i.h
+@@ -248,22 +248,25 @@ typedef enum {
+  *      multi=0 hashInfo=0   PKC S/V one shot (w/o hashing)
+  *      multi=0 hashInfo=X   *** shouldn't happen ***
+  */
+ struct SFTKSessionContextStr {
+     SFTKContextType type;
+     PRBool multi;               /* is multipart */
+     PRBool rsa;                 /* is rsa */
+     PRBool doPad;               /* use PKCS padding for block ciphers */
++    PRBool isXCBC;              /* xcbc, use special handling in final */
+     unsigned int blockSize;     /* blocksize for padding */
+     unsigned int padDataLength; /* length of the valid data in padbuf */
+     /** latest incomplete block of data for block cipher */
+     unsigned char padBuf[SFTK_MAX_BLOCK_SIZE];
+     /** result of MAC'ing of latest full block of data with block cipher */
+     unsigned char macBuf[SFTK_MAX_BLOCK_SIZE];
++    unsigned char k2[SFTK_MAX_BLOCK_SIZE];
++    unsigned char k3[SFTK_MAX_BLOCK_SIZE];
+     CK_ULONG macSize; /* size of a general block cipher mac*/
+     void *cipherInfo;
+     void *hashInfo;
+     unsigned int cipherInfoLen;
+     CK_MECHANISM_TYPE currentMech;
+     SFTKCipher update;
+     SFTKHash hashUpdate;
+     SFTKEnd end;
+@@ -600,16 +603,17 @@ extern CK_RV SFTK_SlotInit(char *configd
+ extern CK_RV SFTK_SlotReInit(SFTKSlot *slot, char *configdir,
+                              char *updatedir, char *updateID,
+                              sftk_token_parameters *params, int moduleIndex);
+ extern CK_RV SFTK_DestroySlotData(SFTKSlot *slot);
+ extern CK_RV SFTK_ShutdownSlot(SFTKSlot *slot);
+ extern CK_RV sftk_CloseAllSessions(SFTKSlot *slot, PRBool logout);
+ 
+ /* internal utility functions used by pkcs11.c */
++extern CK_RV sftk_MapCryptError(int error);
+ extern SFTKAttribute *sftk_FindAttribute(SFTKObject *object,
+                                          CK_ATTRIBUTE_TYPE type);
+ extern void sftk_FreeAttribute(SFTKAttribute *attribute);
+ extern CK_RV sftk_AddAttributeType(SFTKObject *object, CK_ATTRIBUTE_TYPE type,
+                                    const void *valPtr, CK_ULONG length);
+ extern CK_RV sftk_Attribute2SecItem(PLArenaPool *arena, SECItem *item,
+                                     SFTKObject *object, CK_ATTRIBUTE_TYPE type);
+ extern CK_RV sftk_MultipleAttribute2SecItem(PLArenaPool *arena,
+@@ -681,16 +685,40 @@ extern void sftk_CleanupFreeLists(void);
+ extern NSSLOWKEYPublicKey *sftk_GetPubKey(SFTKObject *object,
+                                           CK_KEY_TYPE key_type, CK_RV *crvp);
+ extern NSSLOWKEYPrivateKey *sftk_GetPrivKey(SFTKObject *object,
+                                             CK_KEY_TYPE key_type, CK_RV *crvp);
+ extern void sftk_FormatDESKey(unsigned char *key, int length);
+ extern PRBool sftk_CheckDESKey(unsigned char *key);
+ extern PRBool sftk_IsWeakKey(unsigned char *key, CK_KEY_TYPE key_type);
+ 
++/* ike and xcbc helpers */
++extern CK_RV sftk_ike_prf(CK_SESSION_HANDLE hSession,
++                          const SFTKAttribute *inKey,
++                          const CK_NSS_IKE_PRF_DERIVE_PARAMS *params, SFTKObject *outKey);
++extern CK_RV sftk_ike1_prf(CK_SESSION_HANDLE hSession,
++                           const SFTKAttribute *inKey,
++                           const CK_NSS_IKE1_PRF_DERIVE_PARAMS *params, SFTKObject *outKey,
++                           unsigned int keySize);
++extern CK_RV sftk_ike1_appendix_b_prf(CK_SESSION_HANDLE hSession,
++                           const SFTKAttribute *inKey,
++                           const CK_MECHANISM_TYPE *params, SFTKObject *outKey,
++                           unsigned int keySize);
++extern CK_RV sftk_ike_prf_plus(CK_SESSION_HANDLE hSession,
++                               const SFTKAttribute *inKey,
++                               const CK_NSS_IKE_PRF_PLUS_DERIVE_PARAMS *params, SFTKObject *outKey,
++                               unsigned int keySize);
++extern CK_RV sftk_aes_xcbc_new_keys(CK_SESSION_HANDLE hSession,
++                                    CK_OBJECT_HANDLE hKey, CK_OBJECT_HANDLE_PTR phKey,
++                                    unsigned char *k2, unsigned char *k3);
++extern CK_RV sftk_xcbc_mac_pad(unsigned char *padBuf, unsigned int bufLen,
++                               int blockSize, const unsigned char *k2,
++                               const unsigned char *k3);
++extern SECStatus sftk_fips_IKE_PowerUpSelfTests(void);
++
+ /* mechanism allows this operation */
+ extern CK_RV sftk_MechAllowsOperation(CK_MECHANISM_TYPE type, CK_ATTRIBUTE_TYPE op);
+ 
+ /* helper function which calls nsslowkey_FindKeyByPublicKey after safely
+  * acquiring a reference to the keydb from the slot */
+ NSSLOWKEYPrivateKey *sftk_FindKeyByPublicKey(SFTKSlot *slot, SECItem *dbKey);
+ 
+ /*
+diff --git a/lib/softoken/pkcs11u.c b/lib/softoken/pkcs11u.c
+--- a/lib/softoken/pkcs11u.c
++++ b/lib/softoken/pkcs11u.c
+@@ -10,16 +10,57 @@
+ #include "secasn1.h"
+ #include "blapi.h"
+ #include "secerr.h"
+ #include "prnetdb.h" /* for PR_ntohl */
+ #include "sftkdb.h"
+ #include "softoken.h"
+ 
+ /*
++ * ******************** Error mapping *******************************
++ */
++/*
++ * map all the SEC_ERROR_xxx error codes that may be returned by freebl
++ * functions to CKR_xxx.  return CKR_DEVICE_ERROR by default for backward
++ * compatibility.
++ */
++CK_RV
++sftk_MapCryptError(int error)
++{
++    switch (error) {
++        case SEC_ERROR_INVALID_ARGS:
++        case SEC_ERROR_BAD_DATA: /* MP_RANGE gets mapped to this */
++            return CKR_ARGUMENTS_BAD;
++        case SEC_ERROR_INPUT_LEN:
++            return CKR_DATA_LEN_RANGE;
++        case SEC_ERROR_OUTPUT_LEN:
++            return CKR_BUFFER_TOO_SMALL;
++        case SEC_ERROR_LIBRARY_FAILURE:
++            return CKR_GENERAL_ERROR;
++        case SEC_ERROR_NO_MEMORY:
++            return CKR_HOST_MEMORY;
++        case SEC_ERROR_BAD_SIGNATURE:
++            return CKR_SIGNATURE_INVALID;
++        case SEC_ERROR_INVALID_KEY:
++            return CKR_KEY_SIZE_RANGE;
++        case SEC_ERROR_BAD_KEY:        /* an EC public key that fails validation */
++            return CKR_KEY_SIZE_RANGE; /* the closest error code */
++        case SEC_ERROR_UNSUPPORTED_EC_POINT_FORM:
++            return CKR_TEMPLATE_INCONSISTENT;
++        case SEC_ERROR_UNSUPPORTED_KEYALG:
++            return CKR_MECHANISM_INVALID;
++        case SEC_ERROR_UNSUPPORTED_ELLIPTIC_CURVE:
++            return CKR_DOMAIN_PARAMS_INVALID;
++        /* key pair generation failed after max number of attempts */
++        case SEC_ERROR_NEED_RANDOM:
++            return CKR_FUNCTION_FAILED;
++    }
++    return CKR_DEVICE_ERROR;
++}
++/*
+  * ******************** Attribute Utilities *******************************
+  */
+ 
+ /*
+  * create a new attribute with type, value, and length. Space is allocated
+  * to hold value.
+  */
+ static SFTKAttribute *
+diff --git a/lib/softoken/sftkike.c b/lib/softoken/sftkike.c
+new file mode 100644
+--- /dev/null
++++ b/lib/softoken/sftkike.c
+@@ -0,0 +1,1289 @@
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++/*
++ * This file implements PKCS 11 on top of our existing security modules
++ *
++ * For more information about PKCS 11 See PKCS 11 Token Inteface Standard.
++ *   This implementation has two slots:
++ *      slot 1 is our generic crypto support. It does not require login.
++ *   It supports Public Key ops, and all they bulk ciphers and hashes.
++ *   It can also support Private Key ops for imported Private keys. It does
++ *   not have any token storage.
++ *      slot 2 is our private key support. It requires a login before use. It
++ *   can store Private Keys and Certs as token objects. Currently only private
++ *   keys and their associated Certificates are saved on the token.
++ *
++ *   In this implementation, session objects are only visible to the session
++ *   that created or generated them.
++ */
++#include "seccomon.h"
++#include "secitem.h"
++#include "secport.h"
++#include "blapi.h"
++#include "pkcs11.h"
++#include "pkcs11i.h"
++#include "pkcs1sig.h"
++#include "lowkeyi.h"
++#include "secder.h"
++#include "secdig.h"
++#include "lowpbe.h" /* We do PBE below */
++#include "pkcs11t.h"
++#include "secoid.h"
++#include "alghmac.h"
++#include "softoken.h"
++#include "secasn1.h"
++#include "secerr.h"
++
++#include "prprf.h"
++#include "prenv.h"
++
++/*
++ * A common prfContext to handle both hmac and aes xcbc
++ * hash contexts have non-null hashObj and hmac, aes
++ * contexts have non-null aes */
++typedef struct prfContextStr {
++    HASH_HashType hashType;
++    const SECHashObject *hashObj;
++    HMACContext *hmac;
++    AESContext *aes;
++    unsigned int nextChar;
++    unsigned char padBuf[AES_BLOCK_SIZE];
++    unsigned char macBuf[AES_BLOCK_SIZE];
++    unsigned char k1[AES_BLOCK_SIZE];
++    unsigned char k2[AES_BLOCK_SIZE];
++    unsigned char k3[AES_BLOCK_SIZE];
++} prfContext;
++
++/* iv full of zeros used in several places in aex xcbc */
++static const unsigned char iv_zero[] = {
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
++};
++
++/*
++ * Generate AES XCBC keys from the AES MAC key.
++ * k1 is used in the actual mac.
++ * k2 and k3 are used in the final pad step.
++ */
++static CK_RV
++sftk_aes_xcbc_get_keys(const unsigned char *keyValue, unsigned int keyLen,
++                       unsigned char *k1, unsigned char *k2, unsigned char *k3)
++{
++    SECStatus rv;
++    CK_RV crv;
++    unsigned int tmpLen;
++    AESContext *aes_context = NULL;
++    unsigned char newKey[AES_BLOCK_SIZE];
++
++    /* AES XCBC keys. k1, k2, and k3 are derived by encrypting
++     * k1data, k2data, and k3data with the mac key.
++     */
++    static const unsigned char k1data[] = {
++        0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
++        0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01
++    };
++    static const unsigned char k2data[] = {
++        0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
++        0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02
++    };
++    static const unsigned char k3data[] = {
++        0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03,
++        0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03
++    };
++
++    /* k1_0 = aes_ecb(0, k1data) */
++    static const unsigned char k1_0[] = {
++        0xe1, 0x4d, 0x5d, 0x0e, 0xe2, 0x77, 0x15, 0xdf,
++        0x08, 0xb4, 0x15, 0x2b, 0xa2, 0x3d, 0xa8, 0xe0
++
++    };
++    /* k2_0 = aes_ecb(0, k2data) */
++    static const unsigned char k2_0[] = {
++        0x5e, 0xba, 0x73, 0xf8, 0x91, 0x42, 0xc5, 0x48,
++        0x80, 0xf6, 0x85, 0x94, 0x37, 0x3c, 0x5c, 0x37
++    };
++    /* k3_0 = aes_ecb(0, k3data) */
++    static const unsigned char k3_0[] = {
++        0x8d, 0x34, 0xef, 0xcb, 0x3b, 0xd5, 0x45, 0xca,
++        0x06, 0x2a, 0xec, 0xdf, 0xef, 0x7c, 0x0b, 0xfa
++    };
++
++    /* first make sure out input key is the correct length
++     * rfc 4434. If key is shorter, pad with zeros to the
++     * the right. If key is longer newKey = aes_xcbc(0, key, keyLen).
++     */
++    if (keyLen < AES_BLOCK_SIZE) {
++        PORT_Memcpy(newKey, keyValue, keyLen);
++        PORT_Memset(&newKey[keyLen], 0, AES_BLOCK_SIZE - keyLen);
++        keyValue = newKey;
++    } else if (keyLen > AES_BLOCK_SIZE) {
++        /* calculate our new key = aes_xcbc(0, key, keyLen). Because the
++         * key above is fixed (0), we can precalculate k1, k2, and k2.
++         * if this code ever needs to be more generic (support any xcbc
++         * function rather than just aes, we would probably want to just
++         * recurse here using our prf functions. This would be safe because
++         * the recurse case would have keyLen == blocksize and thus skip
++         * this conditional.
++         */
++        aes_context = AES_CreateContext(k1_0, iv_zero, NSS_AES_CBC,
++                                        PR_TRUE, AES_BLOCK_SIZE, AES_BLOCK_SIZE);
++        /* we know the following loop will execute at least once */
++        while (keyLen > AES_BLOCK_SIZE) {
++            rv = AES_Encrypt(aes_context, newKey, &tmpLen, AES_BLOCK_SIZE,
++                             keyValue, AES_BLOCK_SIZE);
++            if (rv != SECSuccess) {
++                goto fail;
++            }
++            keyValue += AES_BLOCK_SIZE;
++            keyLen -= AES_BLOCK_SIZE;
++        }
++        PORT_Memcpy(newKey, keyValue, keyLen);
++        sftk_xcbc_mac_pad(newKey, keyLen, AES_BLOCK_SIZE, k2_0, k3_0);
++        rv = AES_Encrypt(aes_context, newKey, &tmpLen, AES_BLOCK_SIZE,
++                             newKey, AES_BLOCK_SIZE);
++        if (rv != SECSuccess) {
++            goto fail;
++        }
++        keyValue = newKey;
++        AES_DestroyContext(aes_context, PR_TRUE);
++    }
++    /* the length of the key in keyValue is known to be AES_BLOCK_SIZE,
++     * either because it was on input, or it was shorter and extended, or
++     * because it was mac'd down using aes_xcbc_prf.
++     */
++    aes_context = AES_CreateContext(keyValue, iv_zero,
++                             NSS_AES, PR_TRUE, AES_BLOCK_SIZE, AES_BLOCK_SIZE);
++    if (aes_context == NULL) {
++        goto fail;
++    }
++    rv = AES_Encrypt(aes_context, k1, &tmpLen, AES_BLOCK_SIZE,
++                     k1data, sizeof(k1data));
++    if (rv != SECSuccess) {
++        goto fail;
++    }
++    rv = AES_Encrypt(aes_context, k2, &tmpLen, AES_BLOCK_SIZE,
++                     k2data, sizeof(k2data));
++    if (rv != SECSuccess) {
++        goto fail;
++    }
++    rv = AES_Encrypt(aes_context, k3, &tmpLen, AES_BLOCK_SIZE,
++                     k3data, sizeof(k3data));
++    if (rv != SECSuccess) {
++        goto fail;
++    }
++    AES_DestroyContext(aes_context, PR_TRUE);
++    PORT_Memset(newKey, 0, AES_BLOCK_SIZE);
++    return CKR_OK;
++fail:
++    crv = sftk_MapCryptError(PORT_GetError());
++    if (aes_context) {
++        AES_DestroyContext(aes_context, PR_TRUE);
++    }
++    PORT_Memset(k1, 0, AES_BLOCK_SIZE);
++    PORT_Memset(k2, 0, AES_BLOCK_SIZE);
++    PORT_Memset(k3, 0, AES_BLOCK_SIZE);
++    PORT_Memset(newKey, 0, AES_BLOCK_SIZE);
++    return crv;
++}
++
++/* encode the final pad block of aes xcbc, padBuf is modified */
++CK_RV
++sftk_xcbc_mac_pad(unsigned char *padBuf, unsigned int bufLen, int blockSize,
++                  const unsigned char *k2, const unsigned char *k3)
++{
++    int i;
++    if (bufLen == blockSize) {
++        for (i = 0; i < blockSize; i++) {
++            padBuf[i] ^= k2[i];
++        }
++    } else {
++        padBuf[bufLen++] = 0x80;
++        for (i = bufLen; i < blockSize; i++) {
++            padBuf[i] = 0x00;
++        }
++        for (i = 0; i < blockSize; i++) {
++            padBuf[i] ^= k3[i];
++        }
++    }
++    return CKR_OK;
++}
++
++/* Map the mechanism to the underlying hash. If the type is not a hash
++ * or HMAC, return HASH_AlgNULL. This can happen legitimately if
++ * we are doing AES XCBC */
++static HASH_HashType
++sftk_map_hmac_to_hash(CK_MECHANISM_TYPE type)
++{
++    switch (type) {
++        case CKM_SHA_1_HMAC:
++        case CKM_SHA_1:
++            return HASH_AlgSHA1;
++        case CKM_MD5_HMAC:
++        case CKM_MD5:
++            return HASH_AlgMD5;
++        case CKM_MD2_HMAC:
++        case CKM_MD2:
++            return HASH_AlgMD2;
++        case CKM_SHA224_HMAC:
++        case CKM_SHA224:
++            return HASH_AlgSHA224;
++        case CKM_SHA256_HMAC:
++        case CKM_SHA256:
++            return HASH_AlgSHA256;
++        case CKM_SHA384_HMAC:
++        case CKM_SHA384:
++            return HASH_AlgSHA384;
++        case CKM_SHA512_HMAC:
++        case CKM_SHA512:
++            return HASH_AlgSHA512;
++    }
++    return HASH_AlgNULL;
++}
++
++/*
++ * Generally setup the context based on the mechanism.
++ * If the mech is HMAC, context->hashObj should be set
++ * Otherwise it is assumed to be AES XCBC. prf_setup
++ * checks these assumptions and will return an error
++ * if they are not met. NOTE: this function does not allocate
++ * anything, so there is no requirement to free context after
++ * prf_setup like there is if you call prf_init.
++ */
++static CK_RV
++prf_setup(prfContext *context, CK_MECHANISM_TYPE mech)
++{
++    context->hashType = sftk_map_hmac_to_hash(mech);
++    context->hashObj = NULL;
++    context->hmac = NULL;
++    context->aes = NULL;
++    if (context->hashType != HASH_AlgNULL) {
++        context->hashObj = HASH_GetRawHashObject(context->hashType);
++        if (context->hashObj == NULL) {
++            return CKR_GENERAL_ERROR;
++        }
++        return CKR_OK;
++    } else if (mech == CKM_AES_XCBC_MAC) {
++        return CKR_OK;
++    }
++    return CKR_MECHANISM_PARAM_INVALID;
++}
++
++/* return the underlying prf length for this context. This will
++ * function once the context is setup */
++static CK_RV
++prf_length(prfContext *context)
++{
++    if (context->hashObj) {
++        return context->hashObj->length;
++    }
++    return AES_BLOCK_SIZE; /* AES */
++}
++
++/* set up the key for the prf. prf_update or prf_final should not be called if
++ * prf_init has not been called first. Once prf_init returns hmac and
++ * aes contexts should set and valid.
++ */
++static CK_RV
++prf_init(prfContext *context, const unsigned char *keyValue,
++         unsigned int keyLen)
++{
++    CK_RV crv;
++
++    context->hmac = NULL;
++    if (context->hashObj) {
++        context->hmac = HMAC_Create(context->hashObj,
++                                    keyValue, keyLen, PR_FALSE);
++        if (context->hmac == NULL) {
++            return sftk_MapCryptError(PORT_GetError());
++        }
++        HMAC_Begin(context->hmac);
++    } else {
++        crv = sftk_aes_xcbc_get_keys(keyValue, keyLen, context->k1,
++                                     context->k2, context->k3);
++        if (crv != CKR_OK)
++            return crv;
++        context->nextChar = 0;
++        context->aes = AES_CreateContext(context->k1, iv_zero, NSS_AES_CBC,
++                                         PR_TRUE, sizeof(context->k1), AES_BLOCK_SIZE);
++        if (context->aes == NULL) {
++            crv = sftk_MapCryptError(PORT_GetError());
++            PORT_Memset(context->k1, 0, sizeof(context->k1));
++            PORT_Memset(context->k2, 0, sizeof(context->k2));
++            PORT_Memset(context->k3, 0, sizeof(context->k2));
++            return crv;
++        }
++    }
++    return CKR_OK;
++}
++
++/*
++ * process input to the prf
++ */
++static CK_RV
++prf_update(prfContext *context, const unsigned char *buf, unsigned int len)
++{
++    unsigned int tmpLen;
++    SECStatus rv;
++
++    if (context->hmac) {
++        HMAC_Update(context->hmac, buf, len);
++    } else {
++        /* AES MAC XCBC*/
++        /* We must keep the last block back so that it can be processed in
++         * final. This is why we only check that nextChar + len > blocksize,
++         * rather than checking that nextChar + len >= blocksize */
++        while (context->nextChar + len > AES_BLOCK_SIZE) {
++            if (context->nextChar != 0) {
++                /* first handle fill in any partial blocks in the buffer */
++                unsigned int left = AES_BLOCK_SIZE - context->nextChar;
++                /* note: left can be zero */
++                PORT_Memcpy(context->padBuf + context->nextChar, buf, left);
++                /* NOTE: AES MAC XCBC xors the data with the previous block
++                 * We don't do that step here because our AES_Encrypt mode
++                 * is CBC, which does the xor automatically */
++                rv = AES_Encrypt(context->aes, context->macBuf, &tmpLen,
++                                 sizeof(context->macBuf), context->padBuf,
++                                 sizeof(context->padBuf));
++                if (rv != SECSuccess) {
++                    return sftk_MapCryptError(PORT_GetError());
++                }
++                context->nextChar = 0;
++                len -= left;
++                buf += left;
++            } else {
++                /* optimization. if we have complete blocks to write out
++                 * (and will still have leftover blocks for padbuf in the end).
++                 * we can mac directly out of our buffer without first copying
++                 * them to padBuf */
++                rv = AES_Encrypt(context->aes, context->macBuf, &tmpLen,
++                                 sizeof(context->macBuf), buf, AES_BLOCK_SIZE);
++                if (rv != SECSuccess) {
++                    return sftk_MapCryptError(PORT_GetError());
++                }
++                len -= AES_BLOCK_SIZE;
++                buf += AES_BLOCK_SIZE;
++            }
++        }
++        PORT_Memcpy(context->padBuf + context->nextChar, buf, len);
++        context->nextChar += len;
++    }
++    return CKR_OK;
++}
++
++/*
++ * free the data associated with the prf. Clear any possible CSPs
++ * This can safely be called on any context after prf_setup. It can
++ * also be called an an already freed context.
++ * A free context can be reused by calling prf_init again without
++ * the need to call prf_setup.
++ */
++static void
++prf_free(prfContext *context)
++{
++    if (context->hmac) {
++        HMAC_Destroy(context->hmac, PR_TRUE);
++        context->hmac = NULL;
++    }
++    if (context->aes) {
++        PORT_Memset(context->k1, 0, sizeof(context->k1));
++        PORT_Memset(context->k2, 0, sizeof(context->k2));
++        PORT_Memset(context->k3, 0, sizeof(context->k2));
++        PORT_Memset(context->padBuf, 0, sizeof(context->padBuf));
++        PORT_Memset(context->macBuf, 0, sizeof(context->macBuf));
++        AES_DestroyContext(context->aes, PR_TRUE);
++        context->aes = NULL;
++    }
++}
++
++/*
++ * extract the final prf value. On success, this has the side effect of
++ * also freeing the context data and clearing the keys
++ */
++static CK_RV
++prf_final(prfContext *context, unsigned char *buf, unsigned int len)
++{
++    unsigned int tmpLen;
++    SECStatus rv;
++
++    if (context->hmac) {
++        unsigned int outLen;
++        HMAC_Finish(context->hmac, buf, &outLen, len);
++        if (outLen != len) {
++            return CKR_GENERAL_ERROR;
++        }
++    } else {
++        /* prf_update had guarrenteed that the last full block is still in
++         * the padBuf if the input data is a multiple of the blocksize. This
++         * allows sftk_xcbc_mac_pad to process that pad buf accordingly */
++        sftk_xcbc_mac_pad(context->padBuf, context->nextChar, AES_BLOCK_SIZE,
++                          context->k2, context->k3);
++        rv = AES_Encrypt(context->aes, context->macBuf, &tmpLen,
++                         sizeof(context->macBuf), context->padBuf, AES_BLOCK_SIZE);
++        if (rv != SECSuccess) {
++            return sftk_MapCryptError(PORT_GetError());
++        }
++        PORT_Memcpy(buf, context->macBuf, len);
++    }
++    prf_free(context);
++    return CKR_OK;
++}
++
++/*
++ * There are four flavors of ike prf functions here.
++ * ike_prf is useb in both ikeV1 and ikeV2 to generate
++ * an initial key that all the other keys are generated with.
++ *
++ * These functions are called from NSC_DeriveKey with the inKey value
++ * already looked up, and it expects the CKA_VALUE for outKey to be set.
++ *
++ * Depending on usage it returns either:
++ *    1. prf(Ni|Nr, inKey); (bDataAsKey=TRUE, bRekey=FALSE)
++ *    2. prf(inKey, Ni|Nr); (bDataAsKkey=FALSE, bRekey=FALSE)
++ *    3. prf(inKey, newKey | Ni | Nr); (bDataAsKey=FALSE, bRekey=TRUE)
++ * The resulting output key is always the length of the underlying prf
++ * (as returned by prf_length()).
++ * The combination of bDataAsKey=TRUE and bRekey=TRUE is not allowed
++ *
++ * Case 1 is used in
++ *    a. ikev2 (rfc5996) inKey is called g^ir, the output is called SKEYSEED
++ *    b. ikev1 (rfc2409) inKey is called g^ir, the output is called SKEYID
++ * Case 2 is used in ikev1 (rfc2409) inkey is called pre-shared-key, output
++ *    id called SKEYID
++ * Case 3 is used in ikev2 (rfc5996) rekey case, inKey is SK_d, newKey is
++ *    g^ir (new), the output is called SKEYSEED
++ */
++CK_RV
++sftk_ike_prf(CK_SESSION_HANDLE hSession, const SFTKAttribute *inKey,
++             const CK_NSS_IKE_PRF_DERIVE_PARAMS *params, SFTKObject *outKey)
++{
++    SFTKAttribute *newKeyValue = NULL;
++    SFTKObject *newKeyObj = NULL;
++    unsigned char outKeyData[HASH_LENGTH_MAX];
++    unsigned char *newInKey = NULL;
++    unsigned int newInKeySize;
++    unsigned int macSize;
++    CK_RV crv = CKR_OK;
++    prfContext context;
++
++    crv = prf_setup(&context, params->prfMechanism);
++    if (crv != CKR_OK) {
++        return crv;
++    }
++    macSize = prf_length(&context);
++    if ((params->bDataAsKey) && (params->bRekey)) {
++        return CKR_ARGUMENTS_BAD;
++    }
++    if (params->bRekey) {
++        /* lookup the value of new key from the session and key handle */
++        SFTKSession *session = sftk_SessionFromHandle(hSession);
++        if (session == NULL) {
++            return CKR_SESSION_HANDLE_INVALID;
++        }
++        newKeyObj = sftk_ObjectFromHandle(params->hNewKey, session);
++        sftk_FreeSession(session);
++        if (newKeyObj == NULL) {
++            return CKR_KEY_HANDLE_INVALID;
++        }
++        newKeyValue = sftk_FindAttribute(newKeyObj, CKA_VALUE);
++        if (newKeyValue == NULL) {
++            crv = CKR_KEY_HANDLE_INVALID;
++            goto fail;
++        }
++    }
++    if (params->bDataAsKey) {
++        /* The key is Ni || Np, so we need to concatenate them together first */
++        newInKeySize = params->ulNiLen + params->ulNrLen;
++        newInKey = PORT_Alloc(newInKeySize);
++        if (newInKey == NULL) {
++            crv = CKR_HOST_MEMORY;
++            goto fail;
++        }
++        PORT_Memcpy(newInKey, params->pNi, params->ulNiLen);
++        PORT_Memcpy(newInKey + params->ulNiLen, params->pNr, params->ulNrLen);
++        crv = prf_init(&context, newInKey, newInKeySize);
++        if (crv != CKR_OK) {
++            goto fail;
++        }
++        /* key as the data */
++        crv = prf_update(&context, inKey->attrib.pValue,
++                         inKey->attrib.ulValueLen);
++        if (crv != CKR_OK) {
++            goto fail;
++        }
++    } else {
++        crv = prf_init(&context, inKey->attrib.pValue,
++                       inKey->attrib.ulValueLen);
++        if (crv != CKR_OK) {
++            goto fail;
++        }
++        if (newKeyValue) {
++            crv = prf_update(&context, newKeyValue->attrib.pValue,
++                             newKeyValue->attrib.ulValueLen);
++            if (crv != CKR_OK) {
++                goto fail;
++            }
++        }
++        crv = prf_update(&context, params->pNi, params->ulNiLen);
++        if (crv != CKR_OK) {
++            goto fail;
++        }
++        crv = prf_update(&context, params->pNr, params->ulNrLen);
++        if (crv != CKR_OK) {
++            goto fail;
++        }
++    }
++    crv = prf_final(&context, outKeyData, macSize);
++    if (crv != CKR_OK) {
++        goto fail;
++    }
++
++    crv = sftk_forceAttribute(outKey, CKA_VALUE, outKeyData, macSize);
++fail:
++    if (newInKey) {
++        PORT_Free(newInKey);
++    }
++    if (newKeyValue) {
++        sftk_FreeAttribute(newKeyValue);
++    }
++    if (newKeyObj) {
++        sftk_FreeObject(newKeyObj);
++    }
++    PORT_Memset(outKeyData, 0, macSize);
++    prf_free(&context);
++    return crv;
++}
++
++/*
++ * The second flavor of  ike prf is ike1_prf.
++ *
++ * It is used by ikeV1 to generate the various session keys used in the
++ * connection. It uses the initial key, an optional previous key, and a one byte
++ * key number to generate a unique key for each of the various session
++ * functions (encryption, decryption, mac). These keys expect a key size
++ * (as they may vary in length based on usage). If no length is provided,
++ * it will default to the length of the prf.
++ *
++ * This function returns either:
++ *     prf(inKey, gxyKey || CKYi || CKYr || key_number)
++ * or
++ *     prf(inKey, prefkey || gxyKey || CKYi || CKYr || key_number)
++ * depending on the stats of bHasPrevKey
++ *
++ * This is defined in rfc2409. For each of the following keys.
++ *     inKey is  SKEYID,    gxyKey is g^xy
++ *     for outKey = SKEYID_d, bHasPrevKey = false, key_number = 0
++ *     for outKey = SKEYID_a, prevKey= SKEYID_d,   key_number = 1
++ *     for outKey = SKEYID_e, prevKey= SKEYID_a,   key_number = 2
++ */
++CK_RV
++sftk_ike1_prf(CK_SESSION_HANDLE hSession, const SFTKAttribute *inKey,
++              const CK_NSS_IKE1_PRF_DERIVE_PARAMS *params, SFTKObject *outKey,
++              unsigned int keySize)
++{
++    SFTKAttribute *gxyKeyValue = NULL;
++    SFTKObject *gxyKeyObj = NULL;
++    SFTKAttribute *prevKeyValue = NULL;
++    SFTKObject *prevKeyObj = NULL;
++    SFTKSession *session;
++    unsigned char outKeyData[HASH_LENGTH_MAX];
++    unsigned int macSize;
++    CK_RV crv;
++    prfContext context;
++
++    crv = prf_setup(&context, params->prfMechanism);
++    if (crv != CKR_OK) {
++        return crv;
++    }
++    macSize = prf_length(&context);
++    if (keySize > macSize) {
++        return CKR_KEY_SIZE_RANGE;
++    }
++    if (keySize == 0) {
++        keySize = macSize;
++    }
++
++    /* lookup the two keys from their passed in handles */
++    session = sftk_SessionFromHandle(hSession);
++    if (session == NULL) {
++        return CKR_SESSION_HANDLE_INVALID;
++    }
++    gxyKeyObj = sftk_ObjectFromHandle(params->hKeygxy, session);
++    if (params->bHasPrevKey) {
++        prevKeyObj = sftk_ObjectFromHandle(params->hPrevKey, session);
++    }
++    sftk_FreeSession(session);
++    if ((gxyKeyObj == NULL) || ((params->bHasPrevKey) &&
++                                (prevKeyObj == NULL))) {
++        crv = CKR_KEY_HANDLE_INVALID;
++        goto fail;
++    }
++    gxyKeyValue = sftk_FindAttribute(gxyKeyObj, CKA_VALUE);
++    if (gxyKeyValue == NULL) {
++        crv = CKR_KEY_HANDLE_INVALID;
++        goto fail;
++    }
++    if (prevKeyObj) {
++        prevKeyValue = sftk_FindAttribute(prevKeyObj, CKA_VALUE);
++        if (prevKeyValue == NULL) {
++            crv = CKR_KEY_HANDLE_INVALID;
++            goto fail;
++        }
++    }
++
++    /* outKey = prf(inKey, [prevKey|] gxyKey | CKYi | CKYr | keyNumber) */
++    crv = prf_init(&context, inKey->attrib.pValue, inKey->attrib.ulValueLen);
++    if (crv != CKR_OK) {
++        goto fail;
++    }
++    if (prevKeyValue) {
++        crv = prf_update(&context, prevKeyValue->attrib.pValue,
++                         prevKeyValue->attrib.ulValueLen);
++        if (crv != CKR_OK) {
++            goto fail;
++        }
++    }
++    crv = prf_update(&context, gxyKeyValue->attrib.pValue,
++                     gxyKeyValue->attrib.ulValueLen);
++    if (crv != CKR_OK) {
++        goto fail;
++    }
++    crv = prf_update(&context, params->pCKYi, params->ulCKYiLen);
++    if (crv != CKR_OK) {
++        goto fail;
++    }
++    crv = prf_update(&context, params->pCKYr, params->ulCKYrLen);
++    if (crv != CKR_OK) {
++        goto fail;
++    }
++    crv = prf_update(&context, &params->keyNumber, 1);
++    if (crv != CKR_OK) {
++        goto fail;
++    }
++    crv = prf_final(&context, outKeyData, macSize);
++    if (crv != CKR_OK) {
++        goto fail;
++    }
++
++    crv = sftk_forceAttribute(outKey, CKA_VALUE, outKeyData, keySize);
++fail:
++    if (gxyKeyValue) {
++        sftk_FreeAttribute(gxyKeyValue);
++    }
++    if (prevKeyValue) {
++        sftk_FreeAttribute(prevKeyValue);
++    }
++    if (gxyKeyObj) {
++        sftk_FreeObject(gxyKeyObj);
++    }
++    if (prevKeyObj) {
++        sftk_FreeObject(prevKeyObj);
++    }
++    PORT_Memset(outKeyData, 0, macSize);
++    prf_free(&context);
++    return crv;
++}
++
++/*
++ * The third flavor of ike prf is ike1_appendix_b.
++ *
++ * It is used by ikeV1 to generate longer key material from skeyid_e.
++ * Unlike ike1_prf, if no length is provided, this function
++ * will generate a KEY_RANGE_ERROR.
++ *
++ * This function returns (from rfc2409 appendix b):
++ * Ka = K1 | K2 | K3 | K4 |... Kn
++ * where:
++ *       K1 = prf(K, 0x00)
++ *       K2 = prf(K, K1)
++ *       K3 = prf(K, K2)
++ *       K4 = prf(K, K3)
++ *            .
++ *       Kn = prf(K, T(n-1))
++ * K = inKey, S = seedKey | seedData
++ */
++CK_RV
++sftk_ike1_appendix_b_prf(CK_SESSION_HANDLE hSession, const SFTKAttribute *inKey,
++        const CK_MECHANISM_TYPE *mech, SFTKObject *outKey, unsigned int keySize)
++{
++    unsigned char *outKeyData = NULL;
++    unsigned char *thisKey = NULL;
++    unsigned char *lastKey = NULL;
++    unsigned int macSize;
++    unsigned int outKeySize;
++    unsigned int genKeySize;
++    CK_RV crv;
++    prfContext context;
++
++    crv = prf_setup(&context, *mech);
++    if (crv != CKR_OK) {
++        return crv;
++    }
++
++    macSize = prf_length(&context);
++
++    if (keySize == 0) {
++        keySize = macSize;
++    }
++
++    if (keySize <= inKey->attrib.ulValueLen) {
++        return sftk_forceAttribute(outKey, CKA_VALUE,
++                     inKey->attrib.pValue, keySize);
++
++    }
++    outKeySize = PR_ROUNDUP(keySize, macSize);
++    outKeyData = PORT_Alloc(outKeySize);
++    if (outKeyData == NULL) {
++        crv = CKR_HOST_MEMORY;
++        goto fail;
++    }
++
++    /*
++      * this loop generates on block of the prf, basically
++      *   kn = prf(key, Kn-1)
++      *   Kn is thisKey, Kn-1 is lastKey
++      *   key is inKey
++      */
++    thisKey = outKeyData;
++    for (genKeySize = 0; genKeySize <= keySize; genKeySize += macSize) {
++        crv = prf_init(&context, inKey->attrib.pValue, inKey->attrib.ulValueLen);
++        if (crv != CKR_OK) {
++            goto fail;
++        }
++        if (lastKey == NULL) {
++            const unsigned char zero = 0;
++            crv = prf_update(&context, &zero, 1);
++        } else {
++            crv = prf_update(&context, lastKey, macSize);
++        }
++        if (crv != CKR_OK) {
++            goto fail;
++        }
++        crv = prf_final(&context, thisKey, macSize);
++        if (crv != CKR_OK) {
++            goto fail;
++        }
++        lastKey = thisKey;
++        thisKey += macSize;
++    }
++    crv = sftk_forceAttribute(outKey, CKA_VALUE, outKeyData, keySize);
++fail:
++    if (outKeyData) {
++        PORT_ZFree(outKeyData, outKeySize);
++    }
++    prf_free(&context);
++    return crv;
++}
++
++/*
++ * The final flavor of ike prf is ike_prf_plus
++ *
++ * It is used by ikeV2 to generate the various session keys used in the
++ * connection. It uses the initial key and a feedback version of the prf
++ * to generate sufficient bytes to cover all the session keys. The application
++ * will then use CK_EXTRACT_KEY_FROM_KEY to pull out the various subkeys.
++ * This function expects a key size to be set by the application to cover
++ * all the keys.  Unlike ike1_prf, if no length is provided, this function
++ * will generate a KEY_RANGE_ERROR
++ *
++ * This function returns (from rfc5996):
++ * prfplus = T1 | T2 | T3 | T4 |... Tn
++ * where:
++ *       T1 = prf(K, S  | 0x01)
++ *       T2 = prf(K, T1 | S | 0x02)
++ *       T3 = prf(K, T3 | S | 0x03)
++ *       T4 = prf(K, T4 | S | 0x04)
++ *            .
++ *       Tn = prf(K, T(n-1) | n)
++ * K = inKey, S = seedKey | seedData
++ */
++
++CK_RV
++sftk_ike_prf_plus(CK_SESSION_HANDLE hSession, const SFTKAttribute *inKey,
++                  const CK_NSS_IKE_PRF_PLUS_DERIVE_PARAMS *params, SFTKObject *outKey,
++                  unsigned int keySize)
++{
++    SFTKAttribute *seedValue = NULL;
++    SFTKObject *seedKeyObj = NULL;
++    unsigned char *outKeyData = NULL;
++    unsigned int outKeySize;
++    unsigned char *thisKey;
++    unsigned char *lastKey = NULL;
++    unsigned char currentByte = 0;
++    unsigned int getKeySize;
++    unsigned int macSize;
++    CK_RV crv;
++    prfContext context;
++
++    if (keySize == 0) {
++        return CKR_KEY_SIZE_RANGE;
++    }
++
++    crv = prf_setup(&context, params->prfMechanism);
++    if (crv != CKR_OK) {
++        return crv;
++    }
++    /* pull in optional seedKey */
++    if (params->bHasSeedKey) {
++        SFTKSession *session = sftk_SessionFromHandle(hSession);
++        if (session == NULL) {
++            return CKR_SESSION_HANDLE_INVALID;
++        }
++        seedKeyObj = sftk_ObjectFromHandle(params->hSeedKey, session);
++        sftk_FreeSession(session);
++        if (seedKeyObj == NULL) {
++            return CKR_KEY_HANDLE_INVALID;
++        }
++        seedValue = sftk_FindAttribute(seedKeyObj, CKA_VALUE);
++        if (seedValue == NULL) {
++            crv = CKR_KEY_HANDLE_INVALID;
++            goto fail;
++        }
++    } else if (params->ulSeedDataLen == 0) {
++        crv = CKR_ARGUMENTS_BAD;
++        goto fail;
++    }
++    macSize = prf_length(&context);
++    outKeySize = PR_ROUNDUP(keySize, macSize);
++    outKeyData = PORT_Alloc(outKeySize);
++    if (outKeyData == NULL) {
++        crv = CKR_HOST_MEMORY;
++        goto fail;
++    }
++
++    /*
++      * this loop generates on block of the prf, basically
++      *   Tn = prf(key, Tn-1 | S | n)
++      *   Tn is thisKey, Tn-2 is lastKey, S is seedKey || seedData,
++      *   key is inKey. currentByte = n-1 on entry.
++      */
++    thisKey = outKeyData;
++    for (getKeySize = 0; getKeySize < keySize; getKeySize += macSize) {
++        /* if currentByte is 255, we'll overflow when we increment it below.
++         * This can only happen if keysize > 255*macSize. In that case
++         * the application has asked for too much key material, so return
++         * an error */
++        if (currentByte == 255) {
++            crv = CKR_KEY_SIZE_RANGE;
++            goto fail;
++        }
++        crv = prf_init(&context, inKey->attrib.pValue,
++                       inKey->attrib.ulValueLen);
++        if (crv != CKR_OK) {
++            goto fail;
++        }
++
++        if (lastKey) {
++            crv = prf_update(&context, lastKey, macSize);
++            if (crv != CKR_OK) {
++                goto fail;
++            }
++        }
++        /* prf the key first */
++        if (seedValue) {
++            crv = prf_update(&context, seedValue->attrib.pValue,
++                             seedValue->attrib.ulValueLen);
++            if (crv != CKR_OK) {
++                goto fail;
++            }
++        }
++        /* then prf the data */
++        if (params->ulSeedDataLen != 0) {
++            crv = prf_update(&context, params->pSeedData,
++                             params->ulSeedDataLen);
++            if (crv != CKR_OK) {
++                goto fail;
++            }
++        }
++        currentByte++;
++        crv = prf_update(&context, &currentByte, 1);
++        if (crv != CKR_OK) {
++            goto fail;
++        }
++        crv = prf_final(&context, thisKey, macSize);
++        if (crv != CKR_OK) {
++            goto fail;
++        }
++        lastKey = thisKey;
++        thisKey += macSize;
++    }
++    crv = sftk_forceAttribute(outKey, CKA_VALUE, outKeyData, keySize);
++fail:
++    if (outKeyData) {
++        PORT_ZFree(outKeyData, outKeySize);
++    }
++    if (seedValue) {
++        sftk_FreeAttribute(seedValue);
++    }
++    if (seedKeyObj) {
++        sftk_FreeObject(seedKeyObj);
++    }
++    prf_free(&context);
++    return crv;
++}
++
++/* sftk_aes_xcbc_new_keys:
++ *
++ * aes xcbc creates 3 new keys from the input key. The first key will be the
++ * base key of the underlying cbc. The sign code hooks directly into encrypt
++ * so we'll have to create a full PKCS #11 key with handle for that key. The
++ * caller needs to delete the key when it's through setting up the context.
++ *
++ * The other two keys will be stored in the sign context until we need them
++ * at the end.
++ */
++CK_RV
++sftk_aes_xcbc_new_keys(CK_SESSION_HANDLE hSession,
++                       CK_OBJECT_HANDLE hKey, CK_OBJECT_HANDLE_PTR phKey,
++                       unsigned char *k2, unsigned char *k3)
++{
++    SFTKObject *key = NULL;
++    SFTKSession *session = NULL;
++    SFTKObject *inKeyObj = NULL;
++    SFTKAttribute *inKeyValue = NULL;
++    CK_KEY_TYPE key_type = CKK_AES;
++    CK_OBJECT_CLASS objclass = CKO_SECRET_KEY;
++    CK_BBOOL ck_true = CK_TRUE;
++    CK_RV crv = CKR_OK;
++    SFTKSlot *slot = sftk_SlotFromSessionHandle(hSession);
++    unsigned char buf[AES_BLOCK_SIZE];
++
++    if (!slot) {
++        return CKR_SESSION_HANDLE_INVALID;
++    }
++
++    /* get the session */
++    session = sftk_SessionFromHandle(hSession);
++    if (session == NULL) {
++        crv = CKR_SESSION_HANDLE_INVALID;
++        goto fail;
++    }
++
++    inKeyObj = sftk_ObjectFromHandle(hKey, session);
++    if (inKeyObj == NULL) {
++        crv = CKR_KEY_HANDLE_INVALID;
++        goto fail;
++    }
++
++    inKeyValue = sftk_FindAttribute(inKeyObj, CKA_VALUE);
++    if (inKeyValue == NULL) {
++        crv = CKR_KEY_HANDLE_INVALID;
++        goto fail;
++    }
++
++    crv = sftk_aes_xcbc_get_keys(inKeyValue->attrib.pValue,
++                                 inKeyValue->attrib.ulValueLen, buf, k2, k3);
++
++    if (crv != CKR_OK) {
++        goto fail;
++    }
++
++    /*
++     * now lets create an object to hang the attributes off of
++     */
++    key = sftk_NewObject(slot); /* fill in the handle later */
++    if (key == NULL) {
++        crv = CKR_HOST_MEMORY;
++        goto fail;
++    }
++
++    /* make sure we don't have any class, key_type, or value fields */
++    sftk_DeleteAttributeType(key, CKA_CLASS);
++    sftk_DeleteAttributeType(key, CKA_KEY_TYPE);
++    sftk_DeleteAttributeType(key, CKA_VALUE);
++    sftk_DeleteAttributeType(key, CKA_SIGN);
++
++    /* Add the class, key_type, and value */
++    crv = sftk_AddAttributeType(key, CKA_CLASS, &objclass, sizeof(CK_OBJECT_CLASS));
++    if (crv != CKR_OK) {
++        goto fail;
++    }
++    crv = sftk_AddAttributeType(key, CKA_KEY_TYPE, &key_type, sizeof(CK_KEY_TYPE));
++    if (crv != CKR_OK) {
++        goto fail;
++    }
++    crv = sftk_AddAttributeType(key, CKA_SIGN, &ck_true, sizeof(CK_BBOOL));
++    if (crv != CKR_OK) {
++        goto fail;
++    }
++    crv = sftk_AddAttributeType(key, CKA_VALUE, buf, AES_BLOCK_SIZE);
++    if (crv != CKR_OK) {
++        goto fail;
++    }
++
++    /*
++     * finish filling in the key and link it with our global system.
++     */
++    crv = sftk_handleObject(key, session);
++    if (crv != CKR_OK) {
++        goto fail;
++    }
++    *phKey = key->handle;
++fail:
++    if (session) {
++        sftk_FreeSession(session);
++    }
++
++    if (inKeyValue) {
++        sftk_FreeAttribute(inKeyValue);
++    }
++    if (inKeyObj) {
++        sftk_FreeObject(inKeyObj);
++    }
++    if (key) {
++        sftk_FreeObject(key);
++    }
++    /* clear our CSPs */
++    if (crv != CKR_OK) {
++        PORT_Memset(k2, 0, AES_BLOCK_SIZE);
++        PORT_Memset(k3, 0, AES_BLOCK_SIZE);
++    }
++    return crv;
++}
++
++/*
++ * Helper function that tests a single prf test vector
++ */
++static SECStatus
++prf_test(CK_MECHANISM_TYPE mech,
++         const unsigned char *inKey, unsigned int inKeyLen,
++         const unsigned char *plainText, unsigned int plainTextLen,
++         const unsigned char *expectedResult, unsigned int expectedResultLen)
++{
++    PRUint8 ike_computed_mac[HASH_LENGTH_MAX];
++    prfContext context;
++    unsigned int macSize;
++    CK_RV crv;
++
++    crv = prf_setup(&context, mech);
++    if (crv != CKR_OK) {
++        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
++        return SECFailure;
++    }
++    macSize = prf_length(&context);
++    crv = prf_init(&context, inKey, inKeyLen);
++    if (crv != CKR_OK) {
++        goto fail;
++    }
++    crv = prf_update(&context, plainText, plainTextLen);
++    if (crv != CKR_OK) {
++        goto fail;
++    }
++    crv = prf_final(&context, ike_computed_mac, macSize);
++    if (crv != CKR_OK) {
++        goto fail;
++    }
++
++    if (macSize != expectedResultLen) {
++        goto fail;
++    }
++    if (PORT_Memcmp(expectedResult, ike_computed_mac, macSize) != 0) {
++        goto fail;
++    }
++
++    /* only do the alignment if the plaintext is long enough */
++    if (plainTextLen <= macSize) {
++        return SECSuccess;
++    }
++    /* do it again, but this time tweak with the alignment */
++    crv = prf_init(&context, inKey, inKeyLen);
++    if (crv != CKR_OK) {
++        goto fail;
++    }
++    crv = prf_update(&context, plainText, 1);
++    if (crv != CKR_OK) {
++        goto fail;
++    }
++    crv = prf_update(&context, &plainText[1], macSize);
++    if (crv != CKR_OK) {
++        goto fail;
++    }
++    crv = prf_update(&context, &plainText[1 + macSize], plainTextLen - (macSize + 1));
++    if (crv != CKR_OK) {
++        goto fail;
++    }
++    crv = prf_final(&context, ike_computed_mac, macSize);
++    if (crv != CKR_OK) {
++        goto fail;
++    }
++    if (PORT_Memcmp(expectedResult, ike_computed_mac, macSize) != 0) {
++        goto fail;
++    }
++    return SECSuccess;
++fail:
++    prf_free(&context);
++    PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
++    return SECFailure;
++}
++
++/*
++ * FIPS Power up Self Tests for IKE. This is in this function so it
++ * can access the private prf_ functions here. It's called out of fipstest.c
++ */
++SECStatus
++sftk_fips_IKE_PowerUpSelfTests(void)
++{
++    /* PRF known test vectors */
++    static const PRUint8 ike_xcbc_known_key[] = {
++        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
++        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
++    };
++    static const PRUint8 ike_xcbc_known_plain_text[] = {
++        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
++        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
++    };
++    static const PRUint8 ike_xcbc_known_mac[] = {
++        0xd2, 0xa2, 0x46, 0xfa, 0x34, 0x9b, 0x68, 0xa7,
++        0x99, 0x98, 0xa4, 0x39, 0x4f, 0xf7, 0xa2, 0x63
++    };
++    /* test 2 uses the same key as test 1 */
++    static const PRUint8 ike_xcbc_known_plain_text_2[] = {
++        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
++        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
++        0x10, 0x11, 0x12, 0x13
++    };
++    static const PRUint8 ike_xcbc_known_mac_2[] = {
++        0x47, 0xf5, 0x1b, 0x45, 0x64, 0x96, 0x62, 0x15,
++        0xb8, 0x98, 0x5c, 0x63, 0x05, 0x5e, 0xd3, 0x08
++    };
++    static const PRUint8 ike_xcbc_known_key_3[] = {
++        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
++        0x08, 0x09
++    };
++    /* test 3 uses the same plaintest as test 2 */
++    static const PRUint8 ike_xcbc_known_mac_3[] = {
++        0x0f, 0xa0, 0x87, 0xaf, 0x7d, 0x86, 0x6e, 0x76,
++        0x53, 0x43, 0x4e, 0x60, 0x2f, 0xdd, 0xe8, 0x35
++    };
++    static const PRUint8 ike_xcbc_known_key_4[] = {
++        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
++        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
++        0xed, 0xcb
++    };
++    /* test 4 uses the same plaintest as test 2 */
++    static const PRUint8 ike_xcbc_known_mac_4[] = {
++        0x8c, 0xd3, 0xc9, 0x3a, 0xe5, 0x98, 0xa9, 0x80,
++        0x30, 0x06, 0xff, 0xb6, 0x7c, 0x40, 0xe9, 0xe4
++    };
++    static const PRUint8 ike_sha1_known_key[] = {
++        0x59, 0x98, 0x2b, 0x5b, 0xa5, 0x7e, 0x62, 0xc0,
++        0x46, 0x0d, 0xef, 0xc7, 0x1e, 0x18, 0x64, 0x63
++    };
++    static const PRUint8 ike_sha1_known_plain_text[] = {
++        0x1c, 0x07, 0x32, 0x1a, 0x9a, 0x7e, 0x41, 0xcd,
++        0x88, 0x0c, 0xa3, 0x7a, 0xdb, 0x10, 0xc7, 0x3b,
++        0xf0, 0x0e, 0x7a, 0xe3, 0xcf, 0xc6, 0xfd, 0x8b,
++        0x51, 0xbc, 0xe2, 0xb9, 0x90, 0xe6, 0xf2, 0x01
++    };
++    static const PRUint8 ike_sha1_known_mac[] = {
++        0x0c, 0x2a, 0xf3, 0x42, 0x97, 0x15, 0x62, 0x1d,
++        0x2a, 0xad, 0xc9, 0x94, 0x5a, 0x90, 0x26, 0xfa,
++        0xc7, 0x91, 0xe2, 0x4b
++    };
++    static const PRUint8 ike_sha256_known_key[] = {
++        0x9d, 0xa2, 0xd5, 0x8f, 0x57, 0xf0, 0x39, 0xf9,
++        0x20, 0x4e, 0x0d, 0xd0, 0xef, 0x04, 0xf3, 0x72
++    };
++    static const PRUint8 ike_sha256_known_plain_text[] = {
++        0x33, 0xf1, 0x7a, 0xfc, 0xb6, 0x13, 0x4c, 0xbf,
++        0x1c, 0xab, 0x59, 0x87, 0x7d, 0x42, 0xdb, 0x35,
++        0x82, 0x22, 0x6e, 0xff, 0x74, 0xdd, 0x37, 0xeb,
++        0x8b, 0x75, 0xe6, 0x75, 0x64, 0x5f, 0xc1, 0x69
++    };
++    static const PRUint8 ike_sha256_known_mac[] = {
++        0x80, 0x4b, 0x4a, 0x1e, 0x0e, 0xc5, 0x93, 0xcf, 0xb6,
++        0xe4, 0x54, 0x52, 0x41, 0x49, 0x39, 0x6d, 0xe2, 0x34,
++        0xd0, 0xda, 0xe2, 0x9f, 0x34, 0xa8, 0xfd, 0xb5, 0xf9,
++        0xaf, 0xe7, 0x6e, 0xa6, 0x52
++    };
++    static const PRUint8 ike_sha384_known_key[] = {
++        0xce, 0xc8, 0x9d, 0x84, 0x5a, 0xdd, 0x83, 0xef,
++        0xce, 0xbd, 0x43, 0xab, 0x71, 0xd1, 0x7d, 0xb9
++    };
++    static const PRUint8 ike_sha384_known_plain_text[] = {
++        0x17, 0x24, 0xdb, 0xd8, 0x93, 0x52, 0x37, 0x64,
++        0xbf, 0xef, 0x8c, 0x6f, 0xa9, 0x27, 0x85, 0x6f,
++        0xcc, 0xfb, 0x77, 0xae, 0x25, 0x43, 0x58, 0xcc,
++        0xe2, 0x9c, 0x27, 0x69, 0xa3, 0x29, 0x15, 0xc1
++    };
++    static const PRUint8 ike_sha384_known_mac[] = {
++        0x6e, 0x45, 0x14, 0x61, 0x0b, 0xf8, 0x2d, 0x0a,
++        0xb7, 0xbf, 0x02, 0x60, 0x09, 0x6f, 0x61, 0x46,
++        0xa1, 0x53, 0xc7, 0x12, 0x07, 0x1a, 0xbb, 0x63,
++        0x3c, 0xed, 0x81, 0x3c, 0x57, 0x21, 0x56, 0xc7,
++        0x83, 0xe3, 0x68, 0x74, 0xa6, 0x5a, 0x64, 0x69,
++        0x0c, 0xa7, 0x01, 0xd4, 0x0d, 0x56, 0xea, 0x18
++    };
++    static const PRUint8 ike_sha512_known_key[] = {
++        0xac, 0xad, 0xc6, 0x31, 0x4a, 0x69, 0xcf, 0xcd,
++        0x4e, 0x4a, 0xd1, 0x77, 0x18, 0xfe, 0xa7, 0xce
++    };
++    static const PRUint8 ike_sha512_known_plain_text[] = {
++        0xb1, 0x5a, 0x9c, 0xfc, 0xe8, 0xc8, 0xd7, 0xea,
++        0xb8, 0x79, 0xd6, 0x24, 0x30, 0x29, 0xd4, 0x01,
++        0x88, 0xd3, 0xb7, 0x40, 0x87, 0x5a, 0x6a, 0xc6,
++        0x2f, 0x56, 0xca, 0xc4, 0x37, 0x7e, 0x2e, 0xdd
++    };
++    static const PRUint8 ike_sha512_known_mac[] = {
++        0xf0, 0x5a, 0xa0, 0x36, 0xdf, 0xce, 0x45, 0xa5,
++        0x58, 0xd4, 0x04, 0x18, 0xde, 0xa9, 0x80, 0x96,
++        0xe5, 0x19, 0xbc, 0x78, 0x41, 0xe3, 0xdb, 0x3d,
++        0xd9, 0x36, 0x58, 0xd1, 0x18, 0xc3, 0xe8, 0x3b,
++        0x50, 0x2f, 0x39, 0x8e, 0xcb, 0x13, 0x61, 0xec,
++        0x77, 0xd3, 0x8a, 0x88, 0x55, 0xef, 0xff, 0x40,
++        0x7f, 0x6f, 0x77, 0x2e, 0x5d, 0x65, 0xb5, 0x8e,
++        0xb1, 0x13, 0x40, 0x96, 0xe8, 0x47, 0x8d, 0x2b
++    };
++    SECStatus rv;
++
++    rv = prf_test(CKM_AES_XCBC_MAC,
++                  ike_xcbc_known_key, sizeof(ike_xcbc_known_key),
++                  ike_xcbc_known_plain_text, sizeof(ike_xcbc_known_plain_text),
++                  ike_xcbc_known_mac, sizeof(ike_xcbc_known_mac));
++    if (rv != SECSuccess)
++        return rv;
++    rv = prf_test(CKM_AES_XCBC_MAC,
++                  ike_xcbc_known_key, sizeof(ike_xcbc_known_key),
++                  ike_xcbc_known_plain_text_2, sizeof(ike_xcbc_known_plain_text_2),
++                  ike_xcbc_known_mac_2, sizeof(ike_xcbc_known_mac_2));
++    if (rv != SECSuccess)
++        return rv;
++    rv = prf_test(CKM_AES_XCBC_MAC,
++                  ike_xcbc_known_key_3, sizeof(ike_xcbc_known_key_3),
++                  ike_xcbc_known_plain_text_2, sizeof(ike_xcbc_known_plain_text_2),
++                  ike_xcbc_known_mac_3, sizeof(ike_xcbc_known_mac_3));
++    if (rv != SECSuccess)
++        return rv;
++    rv = prf_test(CKM_AES_XCBC_MAC,
++                  ike_xcbc_known_key_4, sizeof(ike_xcbc_known_key_4),
++                  ike_xcbc_known_plain_text_2, sizeof(ike_xcbc_known_plain_text_2),
++                  ike_xcbc_known_mac_4, sizeof(ike_xcbc_known_mac_4));
++    if (rv != SECSuccess)
++        return rv;
++    rv = prf_test(CKM_SHA_1_HMAC,
++                  ike_sha1_known_key, sizeof(ike_sha1_known_key),
++                  ike_sha1_known_plain_text, sizeof(ike_sha1_known_plain_text),
++                  ike_sha1_known_mac, sizeof(ike_sha1_known_mac));
++    if (rv != SECSuccess)
++        return rv;
++    rv = prf_test(CKM_SHA256_HMAC,
++                  ike_sha256_known_key, sizeof(ike_sha256_known_key),
++                  ike_sha256_known_plain_text,
++                  sizeof(ike_sha256_known_plain_text),
++                  ike_sha256_known_mac, sizeof(ike_sha256_known_mac));
++    if (rv != SECSuccess)
++        return rv;
++    rv = prf_test(CKM_SHA384_HMAC,
++                  ike_sha384_known_key, sizeof(ike_sha384_known_key),
++                  ike_sha384_known_plain_text,
++                  sizeof(ike_sha384_known_plain_text),
++                  ike_sha384_known_mac, sizeof(ike_sha384_known_mac));
++    if (rv != SECSuccess)
++        return rv;
++    rv = prf_test(CKM_SHA512_HMAC,
++                  ike_sha512_known_key, sizeof(ike_sha512_known_key),
++                  ike_sha512_known_plain_text,
++                  sizeof(ike_sha512_known_plain_text),
++                  ike_sha512_known_mac, sizeof(ike_sha512_known_mac));
++    return rv;
++}
+diff --git a/lib/softoken/softoken.gyp b/lib/softoken/softoken.gyp
+--- a/lib/softoken/softoken.gyp
++++ b/lib/softoken/softoken.gyp
+@@ -53,16 +53,17 @@
+           'lowpbe.c',
+           'padbuf.c',
+           'pkcs11.c',
+           'pkcs11c.c',
+           'pkcs11u.c',
+           'sdb.c',
+           'sftkdb.c',
+           'sftkhmac.c',
++          'sftkike.c',
+           'sftkpars.c',
+           'sftkpwd.c',
+           'softkver.c',
+           'tlsprf.c'
+         ],
+       },
+     },
+     {
+diff --git a/tests/common/init.sh b/tests/common/init.sh
+--- a/tests/common/init.sh
++++ b/tests/common/init.sh
+@@ -646,18 +646,21 @@ if [ -z "${INIT_SOURCED}" -o "${INIT_SOU
+ 
+     TOTAL_CRL_RANGE=`expr ${CRL_GRP_1_RANGE} + ${CRL_GRP_2_RANGE} + \
+                      ${CRL_GRP_3_RANGE}`
+ 
+     TOTAL_GRP_NUM=3
+ 
+     RELOAD_CRL=1
+ 
+-    NSS_DEFAULT_DB_TYPE="dbm"
+-    export NSS_DEFAULT_DB_TYPE
++    # if test mode isn't set, test scripts default to expecting dbm
++    if [ "${TEST_MODE}" = "" ]; then
++        NSS_DEFAULT_DB_TYPE="dbm"
++        export NSS_DEFAULT_DB_TYPE
++    fi
+ 
+     MSG_ID=0
+ 
+     #################################################
+     # Interoperability testing constatnts
+     #
+     # if suite is setup for testing, IOPR_HOSTADDR_LIST should have
+     # at least one host name(FQDN)
+diff -up ./tests/fips/fips.sh.ike_mechs ./tests/fips/fips.sh
+new file mode 100755
+--- ./tests/fips/fips.sh.ike_mechs	2019-04-19 10:00:54.535025153 -0700
++++ ./tests/fips/fips.sh	2019-04-19 10:00:03.619825955 -0700
+@@ -0,0 +1,323 @@
++#! /bin/bash  
++#
++# This Source Code Form is subject to the terms of the Mozilla Public
++# License, v. 2.0. If a copy of the MPL was not distributed with this
++# file, You can obtain one at http://mozilla.org/MPL/2.0/.
++
++########################################################################
++# mozilla/security/nss/tests/fips/fips.sh
++#
++# Script to test basic functionallity of NSS in FIPS-compliant mode
++#
++# needs to work on all Unix and Windows platforms
++#
++# tests implemented:
++#
++# special strings
++# ---------------
++#
++########################################################################
++
++############################## fips_init ##############################
++# local shell function to initialize this script 
++########################################################################
++fips_init()
++{
++  SCRIPTNAME=fips.sh      # sourced - $0 would point to all.sh
++
++  if [ -z "${CLEANUP}" ] ; then     # if nobody else is responsible for
++      CLEANUP="${SCRIPTNAME}"       # cleaning this script will do it
++  fi
++
++  if [ -z "${INIT_SOURCED}" -o "${INIT_SOURCED}" != "TRUE" ]; then
++      cd ../common
++      . ./init.sh
++  fi
++#  if [ ! -r $CERT_LOG_FILE ]; then  # we need certificates here
++#      cd ../cert
++#      . ./cert.sh
++#  fi
++  SCRIPTNAME=fips.sh
++  html_head "FIPS 140 Compliance Tests"
++
++# grep "SUCCESS: FIPS passed" $CERT_LOG_FILE >/dev/null || {
++#     Exit 15 "Fatal - FIPS of cert.sh needs to pass first"
++# }
++
++  COPYDIR=${FIPSDIR}/copydir
++  CAVSDIR=${FIPSDIR}/cavs/tests
++  CAVSRUNDIR=${FIPSDIR}/cavs/scripts
++
++  R_FIPSDIR=../fips
++  P_R_FIPSDIR=../fips
++  R_COPYDIR=../fips/copydir
++
++  if [ -n "${MULTIACCESS_DBM}" ]; then
++     P_R_FIPSDIR="multiaccess:${D_FIPS}"
++  fi
++
++  mkdir -p ${FIPSDIR}
++  mkdir -p ${COPYDIR}
++  mkdir -p ${CAVSDIR}
++  mkdir -p ${CAVSRUNDIR}
++
++  cd ${FIPSDIR}
++}
++
++############################## fips_140 ##############################
++# local shell function to test basic functionality of NSS while in
++# FIPS 140 compliant mode
++########################################################################
++fips_140()
++{
++  echo "$SCRIPTNAME: Verify this module is in FIPS mode  -----------------"
++  echo "modutil -dbdir ${P_R_FIPSDIR} -list"
++  ${BINDIR}/modutil -dbdir ${P_R_FIPSDIR} -list 2>&1
++  ${BINDIR}/modutil -dbdir ${P_R_FIPSDIR} -chkfips true 2>&1
++  html_msg $? 0 "Verify this module is in FIPS mode (modutil -chkfips true)" "."
++
++  echo "$SCRIPTNAME: List the FIPS module certificates -----------------"
++  echo "certutil -d ${P_R_FIPSDIR} -L"
++  ${BINDIR}/certutil -d ${P_R_FIPSDIR} -L 2>&1
++  html_msg $? 0 "List the FIPS module certificates (certutil -L)" "."
++
++  echo "$SCRIPTNAME: List the FIPS module keys -------------------------"
++  echo "certutil -d ${P_R_FIPSDIR} -K -f ${R_FIPSPWFILE}"
++  ${BINDIR}/certutil -d ${P_R_FIPSDIR} -K -f ${R_FIPSPWFILE} 2>&1
++  html_msg $? 0 "List the FIPS module keys (certutil -K)" "."
++
++  echo "$SCRIPTNAME: Attempt to list FIPS module keys with incorrect password"
++  echo "certutil -d ${P_R_FIPSDIR} -K -f ${FIPSBADPWFILE}"
++  ${BINDIR}/certutil -d ${P_R_FIPSDIR} -K -f ${FIPSBADPWFILE} 2>&1
++  RET=$?
++  html_msg $RET 255 "Attempt to list FIPS module keys with incorrect password (certutil -K)" "."
++  echo "certutil -K returned $RET"
++
++  echo "$SCRIPTNAME: Validate the certificate --------------------------"
++  echo "certutil -d ${P_R_FIPSDIR} -V -n ${FIPSCERTNICK} -u SR -e -f ${R_FIPSPWFILE}"
++  ${BINDIR}/certutil -d ${P_R_FIPSDIR} -V -n ${FIPSCERTNICK} -u SR -e -f ${R_FIPSPWFILE}
++  html_msg $? 0 "Validate the certificate (certutil -V -e)" "."
++
++  echo "$SCRIPTNAME: Export the certificate and key as a PKCS#12 file --"
++  echo "pk12util -d ${P_R_FIPSDIR} -o fips140.p12 -n ${FIPSCERTNICK} -w ${R_FIPSP12PWFILE} -k ${R_FIPSPWFILE}"
++  ${BINDIR}/pk12util -d ${P_R_FIPSDIR} -o fips140.p12 -n ${FIPSCERTNICK} -w ${R_FIPSP12PWFILE} -k ${R_FIPSPWFILE} 2>&1
++  html_msg $? 0 "Export the certificate and key as a PKCS#12 file (pk12util -o)" "."
++
++  echo "$SCRIPTNAME: Export the certificate as a DER-encoded file ------"
++  echo "certutil -d ${P_R_FIPSDIR} -L -n ${FIPSCERTNICK} -r -o fips140.crt"
++  ${BINDIR}/certutil -d ${P_R_FIPSDIR} -L -n ${FIPSCERTNICK} -r -o fips140.crt 2>&1
++  html_msg $? 0 "Export the certificate as a DER (certutil -L -r)" "."
++
++  echo "$SCRIPTNAME: List the FIPS module certificates -----------------"
++  echo "certutil -d ${P_R_FIPSDIR} -L"
++  certs=`${BINDIR}/certutil -d ${P_R_FIPSDIR} -L 2>&1`
++  ret=$?
++  echo "${certs}" 
++  if [ ${ret} -eq 0 ]; then
++    echo "${certs}" | grep FIPS_PUB_140_Test_Certificate > /dev/null
++    ret=$?
++  fi
++  html_msg $ret 0 "List the FIPS module certificates (certutil -L)" "."
++
++
++  echo "$SCRIPTNAME: Delete the certificate and key from the FIPS module"
++  echo "certutil -d ${P_R_FIPSDIR} -F -n ${FIPSCERTNICK} -f ${R_FIPSPWFILE}"
++  ${BINDIR}/certutil -d ${P_R_FIPSDIR} -F -n ${FIPSCERTNICK} -f ${R_FIPSPWFILE} 2>&1
++  html_msg $? 0 "Delete the certificate and key from the FIPS module (certutil -F)" "."
++
++  echo "$SCRIPTNAME: List the FIPS module certificates -----------------"
++  echo "certutil -d ${P_R_FIPSDIR} -L"
++  certs=`${BINDIR}/certutil -d ${P_R_FIPSDIR} -L 2>&1`
++  ret=$?
++  echo "${certs}" 
++  if [ ${ret} -eq 0 ]; then
++    echo "${certs}" | grep FIPS_PUB_140_Test_Certificate > /dev/null
++    if [ $? -eq 0 ]; then
++      ret=255
++    fi
++  fi
++  html_msg $ret 0 "List the FIPS module certificates (certutil -L)" "."
++
++  echo "$SCRIPTNAME: List the FIPS module keys."
++  echo "certutil -d ${P_R_FIPSDIR} -K -f ${R_FIPSPWFILE}"
++  ${BINDIR}/certutil -d ${P_R_FIPSDIR} -K -f ${R_FIPSPWFILE} 2>&1
++  # certutil -K now returns a failure if no keys are found. This verifies that
++  # our delete succeded.
++  html_msg $? 255 "List the FIPS module keys (certutil -K)" "."
++
++
++  echo "$SCRIPTNAME: Import the certificate and key from the PKCS#12 file"
++  echo "pk12util -d ${P_R_FIPSDIR} -i fips140.p12 -w ${R_FIPSP12PWFILE} -k ${R_FIPSPWFILE}"
++  ${BINDIR}/pk12util -d ${P_R_FIPSDIR} -i fips140.p12 -w ${R_FIPSP12PWFILE} -k ${R_FIPSPWFILE} 2>&1
++  html_msg $? 0 "Import the certificate and key from the PKCS#12 file (pk12util -i)" "."
++
++  echo "$SCRIPTNAME: List the FIPS module certificates -----------------"
++  echo "certutil -d ${P_R_FIPSDIR} -L"
++  certs=`${BINDIR}/certutil -d ${P_R_FIPSDIR} -L 2>&1`
++  ret=$?
++  echo "${certs}" 
++  if [ ${ret} -eq 0 ]; then
++    echo "${certs}" | grep FIPS_PUB_140_Test_Certificate > /dev/null
++    ret=$?
++  fi
++  html_msg $ret 0 "List the FIPS module certificates (certutil -L)" "."
++
++  echo "$SCRIPTNAME: List the FIPS module keys --------------------------"
++  echo "certutil -d ${P_R_FIPSDIR} -K -f ${R_FIPSPWFILE}"
++  ${BINDIR}/certutil -d ${P_R_FIPSDIR} -K -f ${R_FIPSPWFILE} 2>&1
++  html_msg $? 0 "List the FIPS module keys (certutil -K)" "."
++
++
++  echo "$SCRIPTNAME: Delete the certificate from the FIPS module"
++  echo "certutil -d ${P_R_FIPSDIR} -D -n ${FIPSCERTNICK}"
++  ${BINDIR}/certutil -d ${P_R_FIPSDIR} -D -n ${FIPSCERTNICK} 2>&1
++  html_msg $? 0 "Delete the certificate from the FIPS module (certutil -D)" "."
++
++  echo "$SCRIPTNAME: List the FIPS module certificates -----------------"
++  echo "certutil -d ${P_R_FIPSDIR} -L"
++  certs=`${BINDIR}/certutil -d ${P_R_FIPSDIR} -L 2>&1`
++  ret=$?
++  echo "${certs}" 
++  if [ ${ret} -eq 0 ]; then
++    echo "${certs}" | grep FIPS_PUB_140_Test_Certificate > /dev/null
++    if [ $? -eq 0 ]; then
++      ret=255
++    fi
++  fi
++  html_msg $ret 0 "List the FIPS module certificates (certutil -L)" "."
++
++
++  echo "$SCRIPTNAME: Import the certificate and key from the PKCS#12 file"
++  echo "pk12util -d ${P_R_FIPSDIR} -i fips140.p12 -w ${R_FIPSP12PWFILE} -k ${R_FIPSPWFILE}"
++  ${BINDIR}/pk12util -d ${P_R_FIPSDIR} -i fips140.p12 -w ${R_FIPSP12PWFILE} -k ${R_FIPSPWFILE} 2>&1
++  html_msg $? 0 "Import the certificate and key from the PKCS#12 file (pk12util -i)" "."
++
++  echo "$SCRIPTNAME: List the FIPS module certificates -----------------"
++  echo "certutil -d ${P_R_FIPSDIR} -L"
++  certs=`${BINDIR}/certutil -d ${P_R_FIPSDIR} -L 2>&1`
++  ret=$?
++  echo "${certs}" 
++  if [ ${ret} -eq 0 ]; then
++    echo "${certs}" | grep FIPS_PUB_140_Test_Certificate > /dev/null
++    ret=$?
++  fi
++  html_msg $ret 0 "List the FIPS module certificates (certutil -L)" "."
++
++  echo "$SCRIPTNAME: List the FIPS module keys --------------------------"
++  echo "certutil -d ${P_R_FIPSDIR} -K -f ${R_FIPSPWFILE}"
++  ${BINDIR}/certutil -d ${P_R_FIPSDIR} -K -f ${R_FIPSPWFILE} 2>&1
++  html_msg $? 0 "List the FIPS module keys (certutil -K)" "."
++
++
++  echo "$SCRIPTNAME: Run PK11MODE in FIPSMODE  -----------------"
++  echo "pk11mode -d ${P_R_FIPSDIR} -p fips- -f ${R_FIPSPWFILE}"
++  ${BINDIR}/pk11mode -d ${P_R_FIPSDIR} -p fips- -f ${R_FIPSPWFILE}  2>&1
++  html_msg $? 0 "Run PK11MODE in FIPS mode (pk11mode)" "."
++
++  echo "$SCRIPTNAME: Run PK11MODE in Non FIPSMODE  -----------------"
++  echo "pk11mode -d ${P_R_FIPSDIR} -p nonfips- -f ${R_FIPSPWFILE} -n"
++  ${BINDIR}/pk11mode -d ${P_R_FIPSDIR} -p nonfips- -f ${R_FIPSPWFILE} -n 2>&1
++  html_msg $? 0 "Run PK11MODE in Non FIPS mode (pk11mode -n)" "."
++
++  LIBDIR="${DIST}/${OBJDIR}/lib"
++  MANGLEDIR="${FIPSDIR}/mangle"
++   
++  # There are different versions of cp command on different systems, some of them 
++  # copies only symlinks, others doesn't have option to disable links, so there
++  # is needed to copy files one by one. 
++  echo "mkdir ${MANGLEDIR}"
++  mkdir ${MANGLEDIR}
++  for lib in `ls ${LIBDIR}`; do
++    echo "cp ${LIBDIR}/${lib} ${MANGLEDIR}"
++    cp ${LIBDIR}/${lib} ${MANGLEDIR}
++  done
++    
++  echo "$SCRIPTNAME: Detect mangled softoken--------------------------"
++  SOFTOKEN=${MANGLEDIR}/${DLL_PREFIX}softokn3.${DLL_SUFFIX}
++
++  echo "mangling ${SOFTOKEN}"
++  echo "mangle -i ${SOFTOKEN} -o -8 -b 5"
++  # If nss was built without softoken use the system installed one.
++  # It's location must be specified by the package maintainer.
++  if [ ! -e  ${MANGLEDIR}/${DLL_PREFIX}softokn3.${DLL_SUFFIX} ]; then
++    echo "cp ${SOFTOKEN_LIB_DIR}/${DLL_PREFIX}softokn3.${DLL_SUFFIX} ${MANGLEDIR}"
++    cp ${SOFTOKEN_LIB_DIR}/${DLL_PREFIX}softokn3.${DLL_SUFFIX} ${MANGLEDIR}
++  fi
++  ${BINDIR}/mangle -i ${SOFTOKEN} -o -8 -b 5 2>&1
++  if [ $? -eq 0 ]; then
++    if [ "${OS_ARCH}" = "WINNT" ]; then
++      DBTEST=`which dbtest`
++	  if [ "${OS_ARCH}" = "WINNT" -a "$OS_NAME" = "CYGWIN_NT" ]; then
++		DBTEST=`cygpath -m ${DBTEST}`
++		MANGLEDIR=`cygpath -u ${MANGLEDIR}`
++	  fi
++      echo "PATH=${MANGLEDIR} ${DBTEST} -r -d ${P_R_FIPSDIR}"
++      PATH="${MANGLEDIR}" ${DBTEST} -r -d ${P_R_FIPSDIR} > ${TMP}/dbtestoutput.txt 2>&1
++      RESULT=$?
++    elif [ "${OS_ARCH}" = "HP-UX" ]; then
++      echo "SHLIB_PATH=${MANGLEDIR} dbtest -r -d ${P_R_FIPSDIR}"
++      LD_LIBRARY_PATH="" SHLIB_PATH="${MANGLEDIR}" ${BINDIR}/dbtest -r -d ${P_R_FIPSDIR} > ${TMP}/dbtestoutput.txt 2>&1
++      RESULT=$?
++    elif [ "${OS_ARCH}" = "AIX" ]; then
++      echo "LIBPATH=${MANGLEDIR} dbtest -r -d ${P_R_FIPSDIR}"
++      LIBPATH="${MANGLEDIR}" ${BINDIR}/dbtest -r -d ${P_R_FIPSDIR} > ${TMP}/dbtestoutput.txt 2>&1
++      RESULT=$?
++    elif [ "${OS_ARCH}" = "Darwin" ]; then
++      echo "DYLD_LIBRARY_PATH=${MANGLEDIR} dbtest -r -d ${P_R_FIPSDIR}"
++      DYLD_LIBRARY_PATH="${MANGLEDIR}" ${BINDIR}/dbtest -r -d ${P_R_FIPSDIR} > ${TMP}/dbtestoutput.txt 2>&1
++      RESULT=$?
++    else
++      echo "LD_LIBRARY_PATH=${MANGLEDIR} dbtest -r -d ${P_R_FIPSDIR}"
++      LD_LIBRARY_PATH="${MANGLEDIR}" ${BINDIR}/dbtest -r -d ${P_R_FIPSDIR} > ${TMP}/dbtestoutput.txt 2>&1
++      RESULT=$?
++    fi  
++
++    html_msg ${RESULT} 46 "Init NSS with a corrupted library (dbtest -r)" "."
++  else
++    html_failed "Mangle ${DLL_PREFIX}softokn3.${DLL_SUFFIX}"
++  fi
++}
++
++fips_cavs()
++{
++    if [ "${CAVS_VECTORS}" = "all" ]; then
++        VECTORS=
++    elif [ "${CAVS_VECTORS}" = "" ]; then
++        VECTORS="aesgcm ecdsa hmac kas tls ike rng sha"
++    else
++        VECTORS=${CAVS_VECTORS}
++    fi
++    echo "Copying CAVS vectors"
++    cp -r ${QADIR}/fips/cavs_samples/* ${CAVSDIR}
++# we copy the scripts to the test directory because they are designed to run from their
++# own directory and we want any resulting core dumps to wind up in the test_results directory.
++    echo "Copying CAVS scripts"
++    cp -r ${QADIR}/fips/cavs_scripts/* ${CAVSRUNDIR}
++    echo "cd ${CAVSRUNDIR}"
++    cd ${CAVSRUNDIR}
++    echo "Running CAVS tests in ${CAVSDIR}"
++    ./runtest.sh ${CAVSDIR} run ${VECTORS}
++    echo "Verifying CAVS results in ${CAVSDIR}"
++    ./runtest.sh ${CAVSDIR} verify ${VECTORS}
++    RESULT=$?
++    html_msg $RESULT 0 "NIST CAVS test" "${CAVSDIR}"
++}
++
++############################## fips_cleanup ############################
++# local shell function to finish this script (no exit since it might be 
++# sourced)
++########################################################################
++fips_cleanup()
++{
++  html "</TABLE><BR>"
++  cd ${QADIR}
++  . common/cleanup.sh
++}
++
++################## main #################################################
++
++fips_init
++#fips_140
++fips_cavs
++fips_cleanup
++echo "fips.sh done"

@@ -1,0 +1,241 @@
+diff -up ./nss/lib/softoken/lowkey.c.pub-priv-mech ./nss/lib/softoken/lowkey.c
+--- ./nss/lib/softoken/lowkey.c.pub-priv-mech	2019-05-10 14:14:18.000000000 -0700
++++ ./nss/lib/softoken/lowkey.c	2019-06-05 10:40:34.302002920 -0700
+@@ -261,6 +261,7 @@ NSSLOWKEYPublicKey *
+ nsslowkey_ConvertToPublicKey(NSSLOWKEYPrivateKey *privk)
+ {
+     NSSLOWKEYPublicKey *pubk;
++    SECItem publicValue;
+     PLArenaPool *arena;
+ 
+     arena = PORT_NewArena(DER_DEFAULT_CHUNKSIZE);
+@@ -301,6 +302,19 @@ nsslowkey_ConvertToPublicKey(NSSLOWKEYPr
+ 
+                 pubk->arena = arena;
+                 pubk->keyType = privk->keyType;
++                /* if the public key value doesn't exist, calculate it */
++                if (privk->u.dsa.publicValue.len == 0) {
++                    rv = DH_Derive(&privk->u.dsa.params.base, &privk->u.dsa.params.prime,
++                                   &privk->u.dsa.privateValue, &publicValue, 0);
++                    if (rv != SECSuccess) {
++                        break;
++                    }
++                    rv = SECITEM_CopyItem(privk->arena, &privk->u.dsa.publicValue, &publicValue);
++                    SECITEM_FreeItem(&publicValue, PR_FALSE);
++                    if (rv != SECSuccess) {
++                        break;
++                    }
++                }
+                 rv = SECITEM_CopyItem(arena, &pubk->u.dsa.publicValue,
+                                       &privk->u.dsa.publicValue);
+                 if (rv != SECSuccess)
+@@ -327,6 +341,19 @@ nsslowkey_ConvertToPublicKey(NSSLOWKEYPr
+ 
+                 pubk->arena = arena;
+                 pubk->keyType = privk->keyType;
++                /* if the public key value doesn't exist, calculate it */
++                if (privk->u.dh.publicValue.len == 0) {
++                    rv = DH_Derive(&privk->u.dh.base, &privk->u.dh.prime,
++                                   &privk->u.dh.privateValue, &publicValue, 0);
++                    if (rv != SECSuccess) {
++                        break;
++                    }
++                    rv = SECITEM_CopyItem(privk->arena, &privk->u.dh.publicValue, &publicValue);
++                    SECITEM_FreeItem(&publicValue, PR_FALSE);
++                    if (rv != SECSuccess) {
++                        break;
++                    }
++                }
+                 rv = SECITEM_CopyItem(arena, &pubk->u.dh.publicValue,
+                                       &privk->u.dh.publicValue);
+                 if (rv != SECSuccess)
+diff -up ./nss/lib/softoken/pkcs11c.c.pub-priv-mech ./nss/lib/softoken/pkcs11c.c
+--- ./nss/lib/softoken/pkcs11c.c.pub-priv-mech	2019-06-05 10:40:34.298002922 -0700
++++ ./nss/lib/softoken/pkcs11c.c	2019-06-05 10:43:38.610909153 -0700
+@@ -6569,6 +6569,10 @@ NSC_DeriveKey(CK_SESSION_HANDLE hSession
+             extractValue = PR_FALSE;
+             classType = CKO_PRIVATE_KEY;
+             break;
++        case CKM_NSS_PUB_FROM_PRIV:
++            extractValue = PR_FALSE;
++            classType = CKO_PUBLIC_KEY;
++            break;
+         case CKM_NSS_JPAKE_FINAL_SHA1:   /* fall through */
+         case CKM_NSS_JPAKE_FINAL_SHA256: /* fall through */
+         case CKM_NSS_JPAKE_FINAL_SHA384: /* fall through */
+@@ -6610,6 +6614,35 @@ NSC_DeriveKey(CK_SESSION_HANDLE hSession
+     }
+ 
+     switch (mechanism) {
++        /* get a public key from a private key. nsslowkey_ConvertToPublickey()
++         * will generate the public portion if it doesn't already exist. */
++        case CKM_NSS_PUB_FROM_PRIV: {
++            NSSLOWKEYPrivateKey *privKey;
++            NSSLOWKEYPublicKey *pubKey;
++            int error;
++
++            crv = sftk_GetULongAttribute(sourceKey, CKA_KEY_TYPE, &keyType);
++            if (crv != CKR_OK) {
++                break;
++            }
++
++            /* privKey is stored in sourceKey and will be destroyed when
++             * the sourceKey is freed. */
++            privKey = sftk_GetPrivKey(sourceKey, keyType, &crv);
++            if (privKey == NULL) {
++                break;
++            }
++            pubKey = nsslowkey_ConvertToPublicKey(privKey);
++            if (pubKey == NULL) {
++                error = PORT_GetError();
++                crv = sftk_MapCryptError(error);
++                break;
++            }
++            crv = sftk_PutPubKey(key, sourceKey, keyType, pubKey);
++            nsslowkey_DestroyPublicKey(pubKey);
++            break;
++        }
++
+         case CKM_NSS_IKE_PRF_DERIVE:
+             if (pMechanism->ulParameterLen !=
+                                sizeof(CK_NSS_IKE_PRF_DERIVE_PARAMS)) {
+diff -up ./nss/lib/softoken/pkcs11.c.pub-priv-mech ./nss/lib/softoken/pkcs11.c
+--- ./nss/lib/softoken/pkcs11.c.pub-priv-mech	2019-06-05 10:40:34.284002929 -0700
++++ ./nss/lib/softoken/pkcs11.c	2019-06-05 10:40:34.303002919 -0700
+@@ -2208,6 +2208,123 @@ sftk_GetPrivKey(SFTKObject *object, CK_K
+     return priv;
+ }
+ 
++/* populate a public key object from a lowpublic keys structure */
++CK_RV
++sftk_PutPubKey(SFTKObject *publicKey, SFTKObject *privateKey, CK_KEY_TYPE keyType, NSSLOWKEYPublicKey *pubKey)
++{
++    CK_OBJECT_CLASS classType = CKO_PUBLIC_KEY;
++    CK_BBOOL cktrue = CK_TRUE;
++    CK_RV crv = CKR_OK;
++    sftk_DeleteAttributeType(publicKey, CKA_CLASS);
++    sftk_DeleteAttributeType(publicKey, CKA_KEY_TYPE);
++    sftk_DeleteAttributeType(publicKey, CKA_VALUE);
++
++    switch (keyType) {
++        case CKK_RSA:
++            sftk_DeleteAttributeType(publicKey, CKA_MODULUS);
++            sftk_DeleteAttributeType(publicKey, CKA_PUBLIC_EXPONENT);
++            /* format the keys */
++            /* fill in the RSA dependent paramenters in the public key */
++            crv = sftk_AddAttributeType(publicKey, CKA_MODULUS,
++                                        sftk_item_expand(&pubKey->u.rsa.modulus));
++            if (crv != CKR_OK)
++                break;
++            crv = sftk_AddAttributeType(publicKey, CKA_PUBLIC_EXPONENT,
++                                        sftk_item_expand(&pubKey->u.rsa.publicExponent));
++            break;
++        case CKK_DSA:
++            sftk_DeleteAttributeType(publicKey, CKA_PRIME);
++            sftk_DeleteAttributeType(publicKey, CKA_SUBPRIME);
++            sftk_DeleteAttributeType(publicKey, CKA_BASE);
++            crv = sftk_AddAttributeType(publicKey, CKA_PRIME,
++                                        sftk_item_expand(&pubKey->u.dsa.params.prime));
++            if (crv != CKR_OK) {
++                break;
++            }
++            crv = sftk_AddAttributeType(publicKey, CKA_SUBPRIME,
++                                        sftk_item_expand(&pubKey->u.dsa.params.subPrime));
++            if (crv != CKR_OK) {
++                break;
++            }
++            crv = sftk_AddAttributeType(publicKey, CKA_BASE,
++                                        sftk_item_expand(&pubKey->u.dsa.params.base));
++            if (crv != CKR_OK) {
++                break;
++            }
++            crv = sftk_AddAttributeType(publicKey, CKA_VALUE,
++                                        sftk_item_expand(&pubKey->u.dsa.publicValue));
++            break;
++
++        case CKK_DH:
++            sftk_DeleteAttributeType(publicKey, CKA_PRIME);
++            sftk_DeleteAttributeType(publicKey, CKA_BASE);
++            crv = sftk_AddAttributeType(publicKey, CKA_PRIME,
++                                        sftk_item_expand(&pubKey->u.dh.prime));
++            if (crv != CKR_OK) {
++                break;
++            }
++            crv = sftk_AddAttributeType(publicKey, CKA_BASE,
++                                        sftk_item_expand(&pubKey->u.dh.base));
++            if (crv != CKR_OK) {
++                break;
++            }
++            crv = sftk_AddAttributeType(publicKey, CKA_VALUE,
++                                        sftk_item_expand(&pubKey->u.dh.publicValue));
++            break;
++
++        case CKK_EC:
++            sftk_DeleteAttributeType(publicKey, CKA_EC_PARAMS);
++            sftk_DeleteAttributeType(publicKey, CKA_EC_POINT);
++
++            crv = sftk_AddAttributeType(publicKey, CKA_EC_PARAMS,
++                                        sftk_item_expand(&pubKey->u.ec.ecParams.DEREncoding));
++            if (crv != CKR_OK) {
++                break;
++            }
++
++            crv = sftk_AddAttributeType(publicKey, CKA_EC_POINT,
++                                        sftk_item_expand(&pubKey->u.ec.publicValue));
++            break;
++
++        default:
++            return CKR_KEY_TYPE_INCONSISTENT;
++    }
++    crv = sftk_AddAttributeType(publicKey, CKA_CLASS, &classType,
++                                sizeof(CK_OBJECT_CLASS));
++    if (crv != CKR_OK)
++        return crv;
++    crv = sftk_AddAttributeType(publicKey, CKA_KEY_TYPE, &keyType,
++                                sizeof(CK_KEY_TYPE));
++    if (crv != CKR_OK)
++        return crv;
++    /* now handle the operator attributes */
++    if (sftk_isTrue(privateKey, CKA_DECRYPT)) {
++        crv = sftk_forceAttribute(publicKey, CKA_ENCRYPT, &cktrue, sizeof(CK_BBOOL));
++        if (crv != CKR_OK) {
++            return crv;
++        }
++    }
++    if (sftk_isTrue(privateKey, CKA_SIGN)) {
++        crv = sftk_forceAttribute(publicKey, CKA_VERIFY, &cktrue, sizeof(CK_BBOOL));
++        if (crv != CKR_OK) {
++            return crv;
++        }
++    }
++    if (sftk_isTrue(privateKey, CKA_SIGN_RECOVER)) {
++        crv = sftk_forceAttribute(publicKey, CKA_VERIFY_RECOVER, &cktrue, sizeof(CK_BBOOL));
++        if (crv != CKR_OK) {
++            return crv;
++        }
++    }
++    if (sftk_isTrue(privateKey, CKA_DERIVE)) {
++        crv = sftk_forceAttribute(publicKey, CKA_DERIVE, &cktrue, sizeof(CK_BBOOL));
++        if (crv != CKR_OK) {
++            return crv;
++        }
++    }
++    return crv;
++}
++
+ /*
+  **************************** Symetric Key utils ************************
+  */
+diff -up ./nss/lib/softoken/pkcs11i.h.pub-priv-mech ./nss/lib/softoken/pkcs11i.h
+--- ./nss/lib/softoken/pkcs11i.h.pub-priv-mech	2019-06-05 10:40:34.306002918 -0700
++++ ./nss/lib/softoken/pkcs11i.h	2019-06-05 10:45:24.205855432 -0700
+@@ -695,6 +695,9 @@ extern NSSLOWKEYPublicKey *sftk_GetPubKe
+                                           CK_KEY_TYPE key_type, CK_RV *crvp);
+ extern NSSLOWKEYPrivateKey *sftk_GetPrivKey(SFTKObject *object,
+                                             CK_KEY_TYPE key_type, CK_RV *crvp);
++extern CK_RV sftk_PutPubKey(SFTKObject *publicKey, SFTKObject *privKey,
++                            CK_KEY_TYPE keyType,
++                            NSSLOWKEYPublicKey *pubKey);
+ extern void sftk_FormatDESKey(unsigned char *key, int length);
+ extern PRBool sftk_CheckDESKey(unsigned char *key);
+ extern PRBool sftk_IsWeakKey(unsigned char *key, CK_KEY_TYPE key_type);

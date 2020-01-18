@@ -346,6 +346,7 @@ static const struct mechanismList mechanisms[] = {
     /* ------------------------- ChaCha20 Operations ---------------------- */
     { CKM_NSS_CHACHA20_KEY_GEN, { 32, 32, CKF_GENERATE }, PR_TRUE },
     { CKM_NSS_CHACHA20_POLY1305, { 32, 32, CKF_EN_DE }, PR_TRUE },
+    { CKM_NSS_CHACHA20_CTR, { 32, 32, CKF_EN_DE }, PR_TRUE },
 #endif /* NSS_DISABLE_CHACHAPOLY */
     /* ------------------------- Hashing Operations ----------------------- */
     { CKM_MD2, { 0, 0, CKF_DIGEST }, PR_FALSE },
@@ -1343,7 +1344,6 @@ sftk_handleSecretKeyObject(SFTKSession *session, SFTKObject *object,
     if (sftk_isTrue(object, CKA_TOKEN)) {
         SFTKSlot *slot = session->slot;
         SFTKDBHandle *keyHandle = sftk_getKeyDB(slot);
-        CK_RV crv;
 
         if (keyHandle == NULL) {
             return CKR_TOKEN_WRITE_PROTECTED;
@@ -1816,8 +1816,6 @@ sftk_GetPubKey(SFTKObject *object, CK_KEY_TYPE key_type,
                     break; /* key was not DER encoded, no need to unwrap */
                 }
 
-                PORT_Assert(pubKey->u.ec.ecParams.name != ECCurve25519);
-
                 /* handle the encoded case */
                 if ((pubKey->u.ec.publicValue.data[0] == SEC_ASN1_OCTET_STRING) &&
                     pubKey->u.ec.publicValue.len > keyLen) {
@@ -1828,7 +1826,13 @@ sftk_GetPubKey(SFTKObject *object, CK_KEY_TYPE key_type,
                                                 SEC_ASN1_GET(SEC_OctetStringTemplate),
                                                 &pubKey->u.ec.publicValue);
                     /* nope, didn't decode correctly */
-                    if ((rv != SECSuccess) || (publicValue.data[0] != EC_POINT_FORM_UNCOMPRESSED) || (publicValue.len != keyLen)) {
+                    if ((rv != SECSuccess) || (publicValue.len != keyLen)) {
+                        crv = CKR_ATTRIBUTE_VALUE_INVALID;
+                        break;
+                    }
+                    /* we don't handle compressed points except in the case of ECCurve25519 */
+                    if ((pubKey->u.ec.ecParams.fieldID.type != ec_field_plain) &&
+                        (publicValue.data[0] != EC_POINT_FORM_UNCOMPRESSED)) {
                         crv = CKR_ATTRIBUTE_VALUE_INVALID;
                         break;
                     }
@@ -3153,7 +3157,7 @@ nsc_CommonFinalize(CK_VOID_PTR pReserved, PRBool isFIPS)
      * this call doesn't force freebl to be reloaded. */
     BL_SetForkState(PR_FALSE);
 
-#ifndef NSS_TEST_BUILD
+#ifndef NSS_STATIC_SOFTOKEN
     /* unload freeBL shared library from memory. This may only decrement the
      * OS refcount if it's been loaded multiple times, eg. by libssl */
     BL_Unload();
@@ -3807,12 +3811,12 @@ NSC_SetPIN(CK_SESSION_HANDLE hSession, CK_CHAR_PTR pOldPin,
         PZ_Unlock(slot->slotLock);
         /* Reset login flags. */
         if (ulNewLen == 0) {
-            PRBool tokenRemoved = PR_FALSE;
             PZ_Lock(slot->slotLock);
             slot->isLoggedIn = PR_FALSE;
             slot->ssoLoggedIn = PR_FALSE;
             PZ_Unlock(slot->slotLock);
 
+            tokenRemoved = PR_FALSE;
             rv = sftkdb_CheckPassword(handle, "", &tokenRemoved);
             if (tokenRemoved) {
                 sftk_CloseAllSessions(slot, PR_FALSE);
@@ -4422,6 +4426,44 @@ NSC_GetObjectSize(CK_SESSION_HANDLE hSession,
     return CKR_OK;
 }
 
+static CK_RV
+nsc_GetTokenAttributeValue(SFTKSession *session, CK_OBJECT_HANDLE hObject,
+                           CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount)
+{
+    SFTKSlot *slot = sftk_SlotFromSession(session);
+    SFTKDBHandle *dbHandle = sftk_getDBForTokenObject(slot, hObject);
+    SFTKDBHandle *keydb = NULL;
+    CK_RV crv;
+
+    if (dbHandle == NULL) {
+        return CKR_OBJECT_HANDLE_INVALID;
+    }
+
+    crv = sftkdb_GetAttributeValue(dbHandle, hObject, pTemplate, ulCount);
+
+    /* make sure we don't export any sensitive information */
+    keydb = sftk_getKeyDB(slot);
+    if (dbHandle == keydb) {
+        CK_ULONG i;
+        for (i = 0; i < ulCount; i++) {
+            if (sftk_isSensitive(pTemplate[i].type, CKO_PRIVATE_KEY)) {
+                crv = CKR_ATTRIBUTE_SENSITIVE;
+                if (pTemplate[i].pValue && (pTemplate[i].ulValueLen != -1)) {
+                    PORT_Memset(pTemplate[i].pValue, 0,
+                                pTemplate[i].ulValueLen);
+                }
+                pTemplate[i].ulValueLen = -1;
+            }
+        }
+    }
+
+    sftk_freeDB(dbHandle);
+    if (keydb) {
+        sftk_freeDB(keydb);
+    }
+    return crv;
+}
+
 /* NSC_GetAttributeValue obtains the value of one or more object attributes. */
 CK_RV
 NSC_GetAttributeValue(CK_SESSION_HANDLE hSession,
@@ -4450,37 +4492,8 @@ NSC_GetAttributeValue(CK_SESSION_HANDLE hSession,
 
     /* short circuit everything for token objects */
     if (sftk_isToken(hObject)) {
-        SFTKSlot *slot = sftk_SlotFromSession(session);
-        SFTKDBHandle *dbHandle = sftk_getDBForTokenObject(slot, hObject);
-        SFTKDBHandle *keydb = NULL;
-
-        if (dbHandle == NULL) {
-            sftk_FreeSession(session);
-            return CKR_OBJECT_HANDLE_INVALID;
-        }
-
-        crv = sftkdb_GetAttributeValue(dbHandle, hObject, pTemplate, ulCount);
-
-        /* make sure we don't export any sensitive information */
-        keydb = sftk_getKeyDB(slot);
-        if (dbHandle == keydb) {
-            for (i = 0; i < (int)ulCount; i++) {
-                if (sftk_isSensitive(pTemplate[i].type, CKO_PRIVATE_KEY)) {
-                    crv = CKR_ATTRIBUTE_SENSITIVE;
-                    if (pTemplate[i].pValue && (pTemplate[i].ulValueLen != -1)) {
-                        PORT_Memset(pTemplate[i].pValue, 0,
-                                    pTemplate[i].ulValueLen);
-                    }
-                    pTemplate[i].ulValueLen = -1;
-                }
-            }
-        }
-
+        crv = nsc_GetTokenAttributeValue(session, hObject, pTemplate, ulCount);
         sftk_FreeSession(session);
-        sftk_freeDB(dbHandle);
-        if (keydb) {
-            sftk_freeDB(keydb);
-        }
         return crv;
     }
 

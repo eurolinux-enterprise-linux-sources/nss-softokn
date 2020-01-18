@@ -760,6 +760,32 @@ sftk_ChaCha20Poly1305_Decrypt(const SFTKChaCha20Poly1305Info *ctx,
                                  sizeof(ctx->nonce), ad, ctx->adLen);
 }
 
+static SECStatus
+sftk_ChaCha20Ctr(const SFTKChaCha20CtrInfo *ctx,
+                 unsigned char *output, unsigned int *outputLen,
+                 unsigned int maxOutputLen,
+                 const unsigned char *input, unsigned int inputLen)
+{
+    if (maxOutputLen < inputLen) {
+        PORT_SetError(SEC_ERROR_OUTPUT_LEN);
+        return SECFailure;
+    }
+    ChaCha20_Xor(output, input, inputLen, ctx->key,
+                 ctx->nonce, ctx->counter);
+    *outputLen = inputLen;
+    return SECSuccess;
+}
+
+static void
+sftk_ChaCha20Ctr_DestroyContext(SFTKChaCha20CtrInfo *ctx,
+                                PRBool freeit)
+{
+    memset(ctx, 0, sizeof(*ctx));
+    if (freeit) {
+        PORT_Free(ctx);
+    }
+}
+
 /** NSC_CryptInit initializes an encryption/Decryption operation.
  *
  * Always called by NSC_EncryptInit, NSC_DecryptInit, NSC_WrapKey,NSC_UnwrapKey.
@@ -1178,6 +1204,48 @@ sftk_CryptInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism,
             }
             context->update = (SFTKCipher)(isEncrypt ? sftk_ChaCha20Poly1305_Encrypt : sftk_ChaCha20Poly1305_Decrypt);
             context->destroy = (SFTKDestroy)sftk_ChaCha20Poly1305_DestroyContext;
+            break;
+
+        case CKM_NSS_CHACHA20_CTR:
+            if (key_type != CKK_NSS_CHACHA20) {
+                crv = CKR_KEY_TYPE_INCONSISTENT;
+                break;
+            }
+            if (pMechanism->pParameter == NULL || pMechanism->ulParameterLen != 16) {
+                crv = CKR_MECHANISM_PARAM_INVALID;
+                break;
+            }
+
+            att = sftk_FindAttribute(key, CKA_VALUE);
+            if (att == NULL) {
+                crv = CKR_KEY_HANDLE_INVALID;
+                break;
+            }
+            SFTKChaCha20CtrInfo *ctx = PORT_ZNew(SFTKChaCha20CtrInfo);
+            if (!ctx) {
+                sftk_FreeAttribute(att);
+                crv = CKR_HOST_MEMORY;
+                break;
+            }
+            if (att->attrib.ulValueLen != sizeof(ctx->key)) {
+                sftk_FreeAttribute(att);
+                PORT_Free(ctx);
+                crv = CKR_KEY_HANDLE_INVALID;
+                break;
+            }
+            memcpy(ctx->key, att->attrib.pValue, att->attrib.ulValueLen);
+            sftk_FreeAttribute(att);
+
+            /* The counter is little endian. */
+            PRUint8 *param = pMechanism->pParameter;
+            int i = 0;
+            for (; i < 4; ++i) {
+                ctx->counter |= param[i] << (i * 8);
+            }
+            memcpy(ctx->nonce, param + 4, 12);
+            context->cipherInfo = ctx;
+            context->update = (SFTKCipher)sftk_ChaCha20Ctr;
+            context->destroy = (SFTKDestroy)sftk_ChaCha20Ctr_DestroyContext;
             break;
 
         case CKM_NSS_AES_KEY_WRAP_PAD:
@@ -3106,7 +3174,7 @@ RSA_HashCheckSign(SECOidTag digestOid, NSSLOWKEYPublicKey *key,
         digest.len = digestLen;
         rv = _SGN_VerifyPKCS1DigestInfo(
             digestOid, &digest, &pkcs1DigestInfo,
-            PR_TRUE /*XXX: unsafeAllowMissingParameters*/);
+            PR_FALSE /*XXX: unsafeAllowMissingParameters*/);
     }
 
     PORT_Free(pkcs1DigestInfoData);
@@ -4838,6 +4906,7 @@ NSC_GenerateKeyPair(CK_SESSION_HANDLE hSession,
             bitSize = sftk_GetLengthInBits(pubExp.data, pubExp.len);
             if (bitSize < 2) {
                 crv = CKR_ATTRIBUTE_VALUE_INVALID;
+                PORT_Free(pubExp.data);
                 break;
             }
             crv = sftk_AddAttributeType(privateKey, CKA_PUBLIC_EXPONENT,
@@ -5324,7 +5393,52 @@ sftk_PackagePrivateKey(SFTKObject *key, CK_RV *crvp)
             prepare_low_rsa_priv_key_for_asn1(lk);
             dummy = SEC_ASN1EncodeItem(arena, &pki->privateKey, lk,
                                        nsslowkey_RSAPrivateKeyTemplate);
-            algorithm = SEC_OID_PKCS1_RSA_ENCRYPTION;
+
+            /* determine RSA key type from the CKA_PUBLIC_KEY_INFO if present */
+            attribute = sftk_FindAttribute(key, CKA_PUBLIC_KEY_INFO);
+            if (attribute) {
+                NSSLOWKEYSubjectPublicKeyInfo *publicKeyInfo;
+                SECItem spki;
+
+                spki.data = attribute->attrib.pValue;
+                spki.len = attribute->attrib.ulValueLen;
+
+                publicKeyInfo = PORT_ArenaZAlloc(arena,
+                                                 sizeof(NSSLOWKEYSubjectPublicKeyInfo));
+                if (!publicKeyInfo) {
+                    sftk_FreeAttribute(attribute);
+                    *crvp = CKR_HOST_MEMORY;
+                    rv = SECFailure;
+                    goto loser;
+                }
+                rv = SEC_QuickDERDecodeItem(arena, publicKeyInfo,
+                                            nsslowkey_SubjectPublicKeyInfoTemplate,
+                                            &spki);
+                if (rv != SECSuccess) {
+                    sftk_FreeAttribute(attribute);
+                    *crvp = CKR_KEY_TYPE_INCONSISTENT;
+                    goto loser;
+                }
+                algorithm = SECOID_GetAlgorithmTag(&publicKeyInfo->algorithm);
+                if (algorithm != SEC_OID_PKCS1_RSA_ENCRYPTION &&
+                    algorithm != SEC_OID_PKCS1_RSA_PSS_SIGNATURE) {
+                    sftk_FreeAttribute(attribute);
+                    rv = SECFailure;
+                    *crvp = CKR_KEY_TYPE_INCONSISTENT;
+                    goto loser;
+                }
+                param = SECITEM_DupItem(&publicKeyInfo->algorithm.parameters);
+                if (!param) {
+                    sftk_FreeAttribute(attribute);
+                    rv = SECFailure;
+                    *crvp = CKR_HOST_MEMORY;
+                    goto loser;
+                }
+                sftk_FreeAttribute(attribute);
+            } else {
+                /* default to PKCS #1 */
+                algorithm = SEC_OID_PKCS1_RSA_ENCRYPTION;
+            }
             break;
         case NSSLOWKEYDSAKey:
             prepare_low_dsa_priv_key_export_for_asn1(lk);
@@ -5801,6 +5915,53 @@ sftk_unwrapPrivateKey(SFTKObject *key, SECItem *bpki)
         default:
             crv = CKR_KEY_TYPE_INCONSISTENT;
             break;
+    }
+
+    if (crv != CKR_OK) {
+        goto loser;
+    }
+
+    /* For RSA-PSS, record the original algorithm parameters so
+     * they can be encrypted altoghether when wrapping */
+    if (SECOID_GetAlgorithmTag(&pki->algorithm) == SEC_OID_PKCS1_RSA_PSS_SIGNATURE) {
+        NSSLOWKEYSubjectPublicKeyInfo spki;
+        NSSLOWKEYPublicKey pubk;
+        SECItem *publicKeyInfo;
+
+        memset(&spki, 0, sizeof(NSSLOWKEYSubjectPublicKeyInfo));
+        rv = SECOID_CopyAlgorithmID(arena, &spki.algorithm, &pki->algorithm);
+        if (rv != SECSuccess) {
+            crv = CKR_HOST_MEMORY;
+            goto loser;
+        }
+
+        prepare_low_rsa_pub_key_for_asn1(&pubk);
+
+        rv = SECITEM_CopyItem(arena, &pubk.u.rsa.modulus, &lpk->u.rsa.modulus);
+        if (rv != SECSuccess) {
+            crv = CKR_HOST_MEMORY;
+            goto loser;
+        }
+        rv = SECITEM_CopyItem(arena, &pubk.u.rsa.publicExponent, &lpk->u.rsa.publicExponent);
+        if (rv != SECSuccess) {
+            crv = CKR_HOST_MEMORY;
+            goto loser;
+        }
+
+        if (SEC_ASN1EncodeItem(arena, &spki.subjectPublicKey,
+                               &pubk, nsslowkey_RSAPublicKeyTemplate) == NULL) {
+            crv = CKR_HOST_MEMORY;
+            goto loser;
+        }
+
+        publicKeyInfo = SEC_ASN1EncodeItem(arena, NULL,
+                                           &spki, nsslowkey_SubjectPublicKeyInfoTemplate);
+        if (!publicKeyInfo) {
+            crv = CKR_HOST_MEMORY;
+            goto loser;
+        }
+        crv = sftk_AddAttributeType(key, CKA_PUBLIC_KEY_INFO,
+                                    sftk_item_expand(publicKeyInfo));
     }
 
 loser:
@@ -7575,13 +7736,13 @@ NSC_DeriveKey(CK_SESSION_HANDLE hSession,
                 (const CK_NSS_HKDFParams *)pMechanism->pParameter;
             const SECHashObject *rawHash;
             unsigned hashLen;
-            CK_BYTE buf[HASH_LENGTH_MAX];
+            CK_BYTE hashbuf[HASH_LENGTH_MAX];
             CK_BYTE *prk; /* psuedo-random key */
             CK_ULONG prkLen;
             CK_BYTE *okm; /* output keying material */
 
             rawHash = HASH_GetRawHashObject(hashType);
-            if (rawHash == NULL || rawHash->length > sizeof buf) {
+            if (rawHash == NULL || rawHash->length > sizeof(hashbuf)) {
                 crv = CKR_FUNCTION_FAILED;
                 break;
             }
@@ -7615,7 +7776,7 @@ NSC_DeriveKey(CK_SESSION_HANDLE hSession,
                 saltLen = params->ulSaltLen;
                 if (salt == NULL) {
                     saltLen = hashLen;
-                    salt = buf;
+                    salt = hashbuf;
                     memset(salt, 0, saltLen);
                 }
                 hmac = HMAC_Create(rawHash, salt, saltLen, isFIPS);
@@ -7626,10 +7787,10 @@ NSC_DeriveKey(CK_SESSION_HANDLE hSession,
                 HMAC_Begin(hmac);
                 HMAC_Update(hmac, (const unsigned char *)att->attrib.pValue,
                             att->attrib.ulValueLen);
-                HMAC_Finish(hmac, buf, &bufLen, sizeof(buf));
+                HMAC_Finish(hmac, hashbuf, &bufLen, sizeof(hashbuf));
                 HMAC_Destroy(hmac, PR_TRUE);
                 PORT_Assert(bufLen == rawHash->length);
-                prk = buf;
+                prk = hashbuf;
                 prkLen = bufLen;
             } else {
                 /* PRK = base key value */
@@ -7646,24 +7807,24 @@ NSC_DeriveKey(CK_SESSION_HANDLE hSession,
                  * key material = T(1) | ... | T(n)
                  */
                 HMACContext *hmac;
-                CK_BYTE i;
+                CK_BYTE bi;
                 unsigned iterations = PR_ROUNDUP(keySize, hashLen) / hashLen;
                 hmac = HMAC_Create(rawHash, prk, prkLen, isFIPS);
                 if (hmac == NULL) {
                     crv = CKR_HOST_MEMORY;
                     break;
                 }
-                for (i = 1; i <= iterations; ++i) {
+                for (bi = 1; bi <= iterations; ++bi) {
                     unsigned len;
                     HMAC_Begin(hmac);
-                    if (i > 1) {
-                        HMAC_Update(hmac, key_block + ((i - 2) * hashLen), hashLen);
+                    if (bi > 1) {
+                        HMAC_Update(hmac, key_block + ((bi - 2) * hashLen), hashLen);
                     }
                     if (params->ulInfoLen != 0) {
                         HMAC_Update(hmac, params->pInfo, params->ulInfoLen);
                     }
-                    HMAC_Update(hmac, &i, 1);
-                    HMAC_Finish(hmac, key_block + ((i - 1) * hashLen), &len,
+                    HMAC_Update(hmac, &bi, 1);
+                    HMAC_Finish(hmac, key_block + ((bi - 1) * hashLen), &len,
                                 hashLen);
                     PORT_Assert(len == hashLen);
                 }
